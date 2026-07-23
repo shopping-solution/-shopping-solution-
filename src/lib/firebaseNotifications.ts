@@ -71,7 +71,7 @@ export async function requestAndRegisterNotificationPermission(vapidKey?: string
 
     // Default public VAPID key from Firebase console.
     // If not supplied, users can pass their own VAPID key in settings.
-    const activeVapidKey = vapidKey || 'BHzN8WizYv9U7kQ9gHnQy0m5H_3kL_f6A-V7Qh0_m5I'; 
+    const activeVapidKey = vapidKey || 'BK0-ivfwLVCZu6J7brPGsbe2xIUxZvwmKNyRuCf1x1JYV_lQbznvNHImgDiTaetZIq3j586Sqh1rCkwfUXGq8g0'; 
 
     console.log('[FCM] Retrieving web registration token...');
     

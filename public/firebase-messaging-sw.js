@@ -5,12 +5,13 @@ importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-comp
 // Initialize Firebase App inside the Service Worker
 // Credentials match the registered project settings
 firebase.initializeApp({
-  apiKey: "AIzaSyB_Y-L2UWj7E3_xZf3ZO0oUYD1QlRQ0zaQ",
-  authDomain: "pragmatic-solstice-j6pck.firebaseapp.com",
-  projectId: "pragmatic-solstice-j6pck",
-  storageBucket: "pragmatic-solstice-j6pck.firebasestorage.app",
-  messagingSenderId: "756742990062",
-  appId: "1:756742990062:web:b0210e364321fe3f176bff"
+  apiKey: "AIzaSyAFHe6JqtR8a2LI7OloK1OSdyNrty_VreU",
+  authDomain: "shoppingsolution-65cc7.firebaseapp.com",
+  projectId: "shoppingsolution-65cc7",
+  storageBucket: "shoppingsolution-65cc7.firebasestorage.app",
+  messagingSenderId: "1003951363588",
+  appId: "1:1003951363588:web:d86311355e1d4138e04751",
+  measurementId: "G-DCC7SWW5GK"
 });
 
 const messaging = firebase.messaging();
