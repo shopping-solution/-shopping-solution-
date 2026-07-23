@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  ShoppingBag, Search, Filter, Phone, Sparkles, MessageSquare, ArrowRight, X, Check
+  ShoppingBag, Search, Filter, Phone, Sparkles, MessageSquare, ArrowRight, X, Check, Plus, Sliders
 } from 'lucide-react';
 
 import { Product, CartItem, Order, SiteSettings, Language, SubCategory, MenSubCategory, WomenSubCategory } from './types';
@@ -16,7 +16,7 @@ import {
 } from './utils/storage';
 import {
   fetchProductsApi, fetchOrdersApi, fetchSettingsApi,
-  createOrderApi, seedDefaultsApi
+  createOrderApi, seedDefaultsApi, saveProductApi
 } from './utils/api';
 import { formatWhatsappNumber } from './utils/formatters';
 
@@ -32,6 +32,37 @@ import { AdminLoginModal } from './components/Admin/AdminLoginModal';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
 import { TrackOrderModal } from './components/TrackOrderModal';
 import { Footer } from './components/Footer';
+import { AdminProductModal } from './components/AdminProductModal';
+import { AdminFeaturedCollectionModal } from './components/AdminFeaturedCollectionModal';
+
+// Social Username Extractors for messenger inbox URLs
+function getFacebookUsername(url: string | undefined): string {
+  if (!url) return 'shoppingsolution';
+  try {
+    const cleanUrl = url.split('?')[0].replace(/\/+$/, '');
+    const parts = cleanUrl.split('/');
+    const lastPart = parts[parts.length - 1];
+    if (lastPart === 'profile.php' && url.includes('id=')) {
+      const match = url.match(/id=(\d+)/);
+      if (match) return match[1];
+    }
+    return lastPart || 'shoppingsolution';
+  } catch (e) {
+    return 'shoppingsolution';
+  }
+}
+
+function getInstagramUsername(url: string | undefined): string {
+  if (!url) return 'shopping_solution_';
+  try {
+    const cleanUrl = url.split('?')[0].replace(/\/+$/, '');
+    const parts = cleanUrl.split('/');
+    const lastPart = parts[parts.length - 1];
+    return lastPart || 'shopping_solution_';
+  } catch (e) {
+    return 'shopping_solution_';
+  }
+}
 
 export default function App() {
   // Persistent Stores State
@@ -59,6 +90,92 @@ export default function App() {
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
   const [isTrackOrderOpen, setIsTrackOrderOpen] = useState(false);
+
+  // Admin Home Page actions state
+  const [homeEditingProduct, setHomeEditingProduct] = useState<Product | null>(null);
+  const [isHomeProductModalOpen, setIsHomeProductModalOpen] = useState(false);
+  const [isFeaturedModalOpen, setIsFeaturedModalOpen] = useState(false);
+
+  // Floating support chat menu state
+  const [isFloatingMenuOpen, setIsFloatingMenuOpen] = useState(false);
+  const [copiedNotification, setCopiedNotification] = useState(false);
+
+  const handleSocialChatClick = (platform: 'whatsapp' | 'facebook' | 'instagram') => {
+    const welcomeMsg = `আসসালামু আলাইকুম, আপনি যে প্রোডাক্টটি সম্পর্কে জানতে চান তার লিংক বা একটি ছবি দিন।
+
+Assalamu Alaikum, please send the link or a picture of the product you want to know about.`;
+
+    // Copy to clipboard
+    try {
+      navigator.clipboard.writeText(welcomeMsg);
+      setCopiedNotification(true);
+      setTimeout(() => setCopiedNotification(false), 3500);
+    } catch (err) {
+      console.error('Failed to copy welcome message to clipboard:', err);
+    }
+
+    // Direct url redirection
+    let targetUrl = '';
+    if (platform === 'whatsapp') {
+      targetUrl = `https://wa.me/${formatWhatsappNumber(siteSettings.adminWhatsapp)}?text=${encodeURIComponent(welcomeMsg)}`;
+    } else if (platform === 'facebook') {
+      const fbUsername = getFacebookUsername(siteSettings.facebookUrl);
+      targetUrl = `https://m.me/${fbUsername}`;
+    } else if (platform === 'instagram') {
+      const igUsername = getInstagramUsername(siteSettings.instagramUrl);
+      targetUrl = `https://ig.me/m/${igUsername}`;
+    }
+
+    if (targetUrl) {
+      window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    }
+    
+    setIsFloatingMenuOpen(false);
+  };
+
+  // Save or update product from home page admin edit
+  const handleSaveProductFromHome = async (updatedProduct: Product) => {
+    // 1. Update local state
+    setProducts((prev) => {
+      const exists = prev.some((p) => p.id === updatedProduct.id);
+      if (exists) {
+        return prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p));
+      }
+      return [updatedProduct, ...prev];
+    });
+
+    // 2. Persist to API
+    try {
+      await saveProductApi(updatedProduct);
+    } catch (e) {
+      console.error('Failed to save product through API:', e);
+    }
+
+    // 3. Close modal
+    setIsHomeProductModalOpen(false);
+    setHomeEditingProduct(null);
+  };
+
+  // Save changes to featured collection flags
+  const handleSaveFeaturedCollection = async (updatedProducts: Product[]) => {
+    // 1. Update local state
+    setProducts(updatedProducts);
+
+    // 2. Persist changed products to API
+    try {
+      for (const p of updatedProducts) {
+        const original = products.find((orig) => orig.id === p.id);
+        if (original && original.isNewAdded !== p.isNewAdded) {
+          await saveProductApi(p);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to save featured collection changes through API:', e);
+    }
+
+    // 3. Close modal
+    setIsFeaturedModalOpen(false);
+  };
 
   // Refresh orders from API for live tracking
   const handleRefreshOrders = async () => {
@@ -500,6 +617,11 @@ export default function App() {
                           language={language}
                           onOpenDetails={handleOpenProductDetails}
                           onQuickAddToCart={handleOpenProductDetails}
+                          isAdmin={isAdmin}
+                          onEdit={(prod) => {
+                            setHomeEditingProduct(prod);
+                            setIsHomeProductModalOpen(true);
+                          }}
                         />
                       ))}
                     </div>
@@ -531,6 +653,11 @@ export default function App() {
                             language={language}
                             onOpenDetails={handleOpenProductDetails}
                             onQuickAddToCart={handleOpenProductDetails}
+                            isAdmin={isAdmin}
+                            onEdit={(prod) => {
+                              setHomeEditingProduct(prod);
+                              setIsHomeProductModalOpen(true);
+                            }}
                           />
                         ))}
                       </div>
@@ -559,16 +686,21 @@ export default function App() {
                             language={language}
                             onOpenDetails={handleOpenProductDetails}
                             onQuickAddToCart={handleOpenProductDetails}
+                            isAdmin={isAdmin}
+                            onEdit={(prod) => {
+                              setHomeEditingProduct(prod);
+                              setIsHomeProductModalOpen(true);
+                            }}
                           />
                         ))}
                       </div>
                     </div>
                   )}
 
-                  {/* Section 3: New Added Products */}
-                  {newAddedProducts.length > 0 && (
+                  {/* Section 3: New Added Products (Featured Collection) */}
+                  {(newAddedProducts.length > 0 || isAdmin) && (
                     <div className="space-y-6">
-                      <div className="flex items-center justify-between border-b border-amber-500/20 pb-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-amber-500/20 pb-3 gap-4">
                         <div>
                           <span className="text-xs font-bold text-amber-400 tracking-widest uppercase">
                             FRESH ARRIVALS
@@ -577,19 +709,56 @@ export default function App() {
                             {t.newAddedProducts}
                           </h2>
                         </div>
+                        {isAdmin && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              onClick={() => {
+                                setHomeEditingProduct(null);
+                                setIsHomeProductModalOpen(true);
+                              }}
+                              className="px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-extrabold rounded-lg shadow-md transition-all flex items-center gap-1.5 cursor-pointer transform hover:scale-105 active:scale-95"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>{language === 'bn' ? 'নতুন প্রডাক্ট যোগ করুন' : 'Add New Product'}</span>
+                            </button>
+                            <button
+                              onClick={() => setIsFeaturedModalOpen(true)}
+                              className="px-3 py-1.5 bg-stone-800 hover:bg-stone-700 text-stone-200 hover:text-stone-100 text-xs font-bold rounded-lg border border-stone-700 transition-all flex items-center gap-1.5 cursor-pointer"
+                            >
+                              <Sliders className="w-3.5 h-3.5 text-amber-400" />
+                              <span>{language === 'bn' ? 'কালেকশন সাজান' : 'Manage Collection'}</span>
+                            </button>
+                          </div>
+                        )}
                       </div>
 
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                        {newAddedProducts.map((p) => (
-                          <ProductCard
-                            key={p.id}
-                            product={p}
-                            language={language}
-                            onOpenDetails={handleOpenProductDetails}
-                            onQuickAddToCart={handleOpenProductDetails}
-                          />
-                        ))}
-                      </div>
+                      {newAddedProducts.length === 0 ? (
+                        <div className="text-center py-10 bg-stone-900/50 border border-stone-800/60 rounded-2xl space-y-2">
+                          <p className="text-sm text-stone-400">
+                            {language === 'bn' ? 'ফিচার্ড কালেকশনটি খালি আছে।' : 'The featured collection is empty.'}
+                          </p>
+                          <p className="text-xs text-stone-500">
+                            {language === 'bn' ? 'কালেকশনে নতুন প্রোডাক্ট যোগ করতে উপরের বোতামগুলো ব্যবহার করুন।' : 'Use the control buttons above to add products to this collection.'}
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                          {newAddedProducts.map((p) => (
+                            <ProductCard
+                              key={p.id}
+                              product={p}
+                              language={language}
+                              onOpenDetails={handleOpenProductDetails}
+                              onQuickAddToCart={handleOpenProductDetails}
+                              isAdmin={isAdmin}
+                              onEdit={(prod) => {
+                                setHomeEditingProduct(prod);
+                                setIsHomeProductModalOpen(true);
+                              }}
+                            />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -602,16 +771,107 @@ export default function App() {
 
       </main>
 
-      {/* Floating Instant WhatsApp Button */}
-      <a
-        href={`https://wa.me/${formatWhatsappNumber(siteSettings.adminWhatsapp)}?text=${encodeURIComponent('Hello Shopping Solution, I need assistance.')}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-2xl shadow-emerald-600/50 hover:scale-110 transition-all cursor-pointer group"
-        title="Chat on WhatsApp"
-      >
-        <MessageSquare className="w-7 h-7 group-hover:rotate-12 transition-transform" />
-      </a>
+      {/* Floating Multi-Social Chat Widget */}
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end gap-3">
+        {/* Expanded Social Channels Menu */}
+        {isFloatingMenuOpen && (
+          <div className="flex flex-col items-end gap-3 mb-2 animate-in fade-in slide-in-from-bottom-5 duration-300">
+            {/* WhatsApp Option */}
+            <button
+              onClick={() => handleSocialChatClick('whatsapp')}
+              className="flex items-center gap-2.5 group cursor-pointer border-none bg-transparent outline-none"
+              title="Chat on WhatsApp"
+            >
+              <span className="bg-stone-900 border border-stone-800 text-stone-200 text-xs font-bold px-3 py-1.5 rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                WhatsApp
+              </span>
+              <div className="w-12 h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-all">
+                <svg className="w-5.5 h-5.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+                </svg>
+              </div>
+            </button>
+
+            {/* Facebook Messenger Option */}
+            <button
+              onClick={() => handleSocialChatClick('facebook')}
+              className="flex items-center gap-2.5 group cursor-pointer border-none bg-transparent outline-none"
+              title="Message on Facebook Messenger"
+            >
+              <span className="bg-stone-900 border border-stone-800 text-stone-200 text-xs font-bold px-3 py-1.5 rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                Messenger
+              </span>
+              <div className="w-12 h-12 bg-blue-600 hover:bg-blue-500 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-all">
+                <svg className="w-5.5 h-5.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M12 2C6.477 2 2 6.145 2 11.243c0 2.91 1.448 5.503 3.71 7.152v3.743c0 .248.243.414.464.316l4.135-1.838c.54.15 1.106.23 1.691.23 5.523 0 10-4.146 10-9.244S17.523 2 12 2zm1.096 11.905l-2.222-2.37-4.329 2.37 4.757-5.053 2.27 2.37 4.281-2.37-4.757 5.053z"/>
+                </svg>
+              </div>
+            </button>
+
+            {/* Instagram Option */}
+            <button
+              onClick={() => handleSocialChatClick('instagram')}
+              className="flex items-center gap-2.5 group cursor-pointer border-none bg-transparent outline-none"
+              title="Message on Instagram"
+            >
+              <span className="bg-stone-900 border border-stone-800 text-stone-200 text-xs font-bold px-3 py-1.5 rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                Instagram
+              </span>
+              <div className="w-12 h-12 bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 text-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 transition-all">
+                <svg className="w-5.5 h-5.5 fill-current" viewBox="0 0 24 24">
+                  <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
+                </svg>
+              </div>
+            </button>
+          </div>
+        )}
+
+        {/* Main Floating Trigger Button */}
+        <div className="relative flex items-center justify-end">
+          {/* Persistent speech bubble label */}
+          {!isFloatingMenuOpen && (
+            <div className="absolute right-16 top-1/2 -translate-y-1/2 whitespace-nowrap bg-stone-900 border border-amber-500/30 text-stone-100 text-[11px] font-bold px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 select-none pointer-events-none animate-pulse">
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
+              <span>{language === 'bn' ? 'যেকোনো তথ্যের জন্য মেসেজ দিন' : 'Message for any information'}</span>
+            </div>
+          )}
+
+          <button
+            onClick={() => setIsFloatingMenuOpen(!isFloatingMenuOpen)}
+            className={`w-14 h-14 rounded-full flex items-center justify-center shadow-2xl transition-all cursor-pointer transform hover:scale-110 active:scale-95 z-50 border-none outline-none ${
+              isFloatingMenuOpen
+                ? 'bg-stone-800 text-amber-400 rotate-90'
+                : 'bg-amber-500 text-stone-950 shadow-amber-500/20'
+            }`}
+            title={language === 'bn' ? 'যোগাযোগ করুন' : 'Contact Support'}
+          >
+            {isFloatingMenuOpen ? (
+              <X className="w-6 h-6 transition-transform" />
+            ) : (
+              <MessageSquare className="w-6 h-6 animate-pulse" />
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Copy-paste Helpful Action Toast */}
+      {copiedNotification && (
+        <div className="fixed bottom-24 right-6 z-50 bg-stone-900 border border-emerald-500/40 text-stone-100 rounded-2xl p-4 shadow-2xl flex items-center gap-3 animate-bounce max-w-xs sm:max-w-sm">
+          <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
+            <Check className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-stone-100">
+              {language === 'bn' ? 'মেসেজটি কপি করা হয়েছে!' : 'Message Copied!'}
+            </p>
+            <p className="text-[10px] text-stone-400 mt-0.5 leading-tight">
+              {language === 'bn' 
+                ? 'ইনবক্সে গিয়ে মেসেজটি পেস্ট করে সেন্ড করুন।' 
+                : 'Paste the message in the chat box to send instantly.'}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Product Details Modal */}
       <ProductDetailsModal
@@ -620,6 +880,7 @@ export default function App() {
         onClose={handleCloseProductDetails}
         onAddToCart={handleAddToCart}
         onDirectBuyNow={handleDirectBuyNow}
+        isAdmin={isAdmin}
       />
 
       {/* Shopping Cart Drawer */}
@@ -670,6 +931,30 @@ export default function App() {
         onClose={() => setIsAdminLoginOpen(false)}
         onLoginSuccess={handleAdminLoginSuccess}
       />
+
+      {/* Admin Home Page Product Modal */}
+      {isHomeProductModalOpen && (
+        <AdminProductModal
+          language={language}
+          product={homeEditingProduct}
+          onClose={() => {
+            setIsHomeProductModalOpen(false);
+            setHomeEditingProduct(null);
+          }}
+          onSave={handleSaveProductFromHome}
+          preSetIsNewAdded={true}
+        />
+      )}
+
+      {/* Admin Featured Collection Quick-Manage Modal */}
+      {isFeaturedModalOpen && (
+        <AdminFeaturedCollectionModal
+          language={language}
+          products={products}
+          onClose={() => setIsFeaturedModalOpen(false)}
+          onSave={handleSaveFeaturedCollection}
+        />
+      )}
 
       {/* Luxury Footer */}
       <Footer

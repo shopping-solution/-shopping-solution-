@@ -77,3 +77,13 @@ export const adminNotifications = pgTable('admin_notifications', {
   read: boolean('read').notNull().default(false),
 });
 
+export const reviews = pgTable('reviews', {
+  id: serial('id').primaryKey(),
+  productId: text('product_id').notNull(),
+  reviewerName: text('reviewer_name').notNull(),
+  reviewerMessage: text('reviewer_message').notNull(),
+  reviewerRating: integer('reviewer_rating').notNull().default(5),
+  reviewerImage: text('reviewer_image'),
+  createdAt: text('created_at').notNull(),
+});
+

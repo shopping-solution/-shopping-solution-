@@ -81,3 +81,13 @@ export interface SiteSettings {
   deliveryFeeOutsideDhaka: number;
   defaultCourier?: string;
 }
+
+export interface Review {
+  id?: number;
+  productId: string;
+  reviewerName: string;
+  reviewerMessage: string;
+  reviewerRating: number;
+  reviewerImage?: string;
+  createdAt?: string;
+}

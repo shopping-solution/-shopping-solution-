@@ -1,4 +1,4 @@
-import { Product, Order, SiteSettings } from '../types';
+import { Product, Order, SiteSettings, Review } from '../types';
 
 export async function fetchProductsApi(): Promise<Product[] | null> {
   try {
@@ -120,6 +120,44 @@ export async function seedDefaultsApi(): Promise<boolean> {
     return res.ok;
   } catch (e) {
     console.warn('API seed defaults error:', e);
+    return false;
+  }
+}
+
+export async function fetchReviewsApi(productId: string): Promise<Review[] | null> {
+  try {
+    const res = await fetch(`/api/reviews/${productId}`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn('API fetch reviews error:', e);
+  }
+  return null;
+}
+
+export async function createReviewApi(review: Review): Promise<Review | null> {
+  try {
+    const res = await fetch('/api/reviews', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(review),
+    });
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn('API create review error:', e);
+  }
+  return null;
+}
+
+export async function deleteReviewApi(id: number): Promise<boolean> {
+  try {
+    const res = await fetch(`/api/reviews/${id}`, { method: 'DELETE' });
+    return res.ok;
+  } catch (e) {
+    console.warn('API delete review error:', e);
     return false;
   }
 }

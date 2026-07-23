@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingBag, Eye, CheckCircle2, AlertTriangle, ArrowRight, Share2, Check, Copy } from 'lucide-react';
+import { ShoppingBag, Eye, CheckCircle2, AlertTriangle, ArrowRight, Share2, Check, Copy, Pencil } from 'lucide-react';
 import { Product, Language } from '../types';
 import { translations } from '../data/translations';
 
@@ -8,6 +8,8 @@ interface ProductCardProps {
   language: Language;
   onOpenDetails: (product: Product) => void;
   onQuickAddToCart: (product: Product) => void;
+  isAdmin?: boolean;
+  onEdit?: (product: Product) => void;
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({
@@ -15,6 +17,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   language,
   onOpenDetails,
   onQuickAddToCart,
+  isAdmin = false,
+  onEdit,
 }) => {
   const t = translations[language];
   const [copied, setCopied] = useState(false);
@@ -57,6 +61,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* Badges */}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 z-10">
+          {isAdmin && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit?.(product);
+              }}
+              className="bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-[10px] px-2.5 py-1.5 rounded-lg shadow-lg uppercase tracking-wider flex items-center gap-1 transition-all transform active:scale-95 duration-150 border border-amber-600/20"
+            >
+              <Pencil className="w-3 h-3" />
+              <span>{language === 'bn' ? 'সংশোধন' : 'Edit'}</span>
+            </button>
+          )}
+
           {product.discountPercent && product.discountPercent > 0 && (
             <span className="bg-gradient-to-r from-amber-500 to-amber-600 text-stone-950 font-extrabold text-[11px] px-2.5 py-1 rounded-md shadow-md uppercase tracking-wide">
               -{product.discountPercent}% {t.discount}

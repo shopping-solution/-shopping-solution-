@@ -3,7 +3,7 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { eq, desc } from 'drizzle-orm';
 import { db } from './src/db/index.ts';
-import { products, orders, siteSettings, users, pushTokens, adminNotifications } from './src/db/schema.ts';
+import { products, orders, siteSettings, users, pushTokens, adminNotifications, reviews } from './src/db/schema.ts';
 import { INITIAL_PRODUCTS, INITIAL_SITE_SETTINGS } from './src/data/initialProducts.ts';
 import { createCourierConsignment, getLiveCourierStatus } from './server/couriers';
 import { triggerOrderNotification, registerSseClient, unregisterSseClient, sendPushNotification } from './server/notifications.ts';
@@ -131,6 +131,60 @@ async function startServer() {
     }
   });
 
+  // Get all reviews for a product
+  app.get('/api/reviews/:productId', async (req, res) => {
+    try {
+      const { productId } = req.params;
+      const productReviews = await db
+        .select()
+        .from(reviews)
+        .where(eq(reviews.productId, productId));
+      res.json(productReviews);
+    } catch (error: any) {
+      console.error('Failed to fetch reviews from Cloud SQL:', error);
+      res.status(500).json({ error: 'Failed to fetch reviews' });
+    }
+  });
+
+  // Create a new review
+  app.post('/api/reviews', async (req, res) => {
+    try {
+      const { productId, reviewerName, reviewerMessage, reviewerRating, reviewerImage } = req.body;
+      if (!productId || !reviewerName || !reviewerMessage) {
+        return res.status(400).json({ error: 'Missing required review fields' });
+      }
+
+      const result = await db
+        .insert(reviews)
+        .values({
+          productId,
+          reviewerName,
+          reviewerMessage,
+          reviewerRating: Number(reviewerRating || 5),
+          reviewerImage: reviewerImage || null,
+          createdAt: new Date().toISOString(),
+        })
+        .returning();
+
+      res.json(result[0]);
+    } catch (error: any) {
+      console.error('Failed to save review to Cloud SQL:', error);
+      res.status(500).json({ error: 'Failed to save review' });
+    }
+  });
+
+  // Delete a review (Admin action)
+  app.delete('/api/reviews/:id', async (req, res) => {
+    try {
+      const { id } = req.params;
+      await db.delete(reviews).where(eq(reviews.id, Number(id)));
+      res.json({ success: true, id });
+    } catch (error: any) {
+      console.error('Failed to delete review from Cloud SQL:', error);
+      res.status(500).json({ error: 'Failed to delete review' });
+    }
+  });
+
   // Get all orders
   app.get('/api/orders', async (req, res) => {
     try {
@@ -168,12 +222,10 @@ async function startServer() {
 
       console.log(`[REALTIME ORDER ALERT] Order #${orderData.id} placed by ${orderData.customer?.fullName} (${orderData.customer?.mobileNumber}) Total: ৳${orderData.totalAmount}. Admin Email & WhatsApp notifications dispatched!`);
 
-      // Trigger the real-time notification engine (SSE + FCM Push)
-      try {
-        await triggerOrderNotification(result[0]);
-      } catch (err) {
+      // Trigger the real-time notification engine (SSE + FCM Push) in the background
+      triggerOrderNotification(result[0]).catch((err) => {
         console.error('[NOTIFY TRIPPED] Non-blocking push notification fail:', err);
-      }
+      });
 
       res.json(result[0]);
     } catch (error: any) {
@@ -345,17 +397,27 @@ async function startServer() {
   app.get('/api/notifications/stream', (req, res) => {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
+      'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
-      'Content-Encoding': 'none',
+      'X-Accel-Buffering': 'no', // Bypass Nginx/Cloud Run proxy buffering
     });
 
-    res.write('retry: 10000\n');
+    res.write('retry: 5000\n');
     res.write('data: {"status":"connected"}\n\n');
 
     registerSseClient(res);
 
+    // Keep connection alive with periodic heartbeat pings (every 20 seconds)
+    const keepAliveInterval = setInterval(() => {
+      try {
+        res.write(': keepalive\n\n');
+      } catch (err) {
+        // Safe catch if client has disconnected
+      }
+    }, 20000);
+
     req.on('close', () => {
+      clearInterval(keepAliveInterval);
       unregisterSseClient(res);
     });
   });

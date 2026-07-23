@@ -84,7 +84,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Real-time EventSource listener for new orders (for Admin Dashboard)
   useEffect(() => {
     console.log('[SSE] Opening real-time notification stream...');
-    const eventSource = new EventSource('/api/notifications/stream');
+    // Add cache-busting timestamp to prevent proxy or browser-level response caching
+    const eventSource = new EventSource(`/api/notifications/stream?t=${Date.now()}`);
 
     eventSource.onopen = () => {
       console.log('[SSE] Connection opened successfully.');
@@ -100,16 +101,26 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           playNotificationSound();
         }
 
-        // 2. Refresh orders instantly in dashboard state
-        const refreshedOrders = await fetchOrdersApi();
-        if (refreshedOrders) {
-          onUpdateOrders(refreshedOrders);
-        }
+        // 2. Prepend the new order instantly to local state for zero-latency UI display
+        const updateOrdersState = (prevOrders: Order[]) => {
+          if (prevOrders.some((o) => o.id === data.order.id)) {
+            return prevOrders;
+          }
+          return [data.order, ...prevOrders];
+        };
+        onUpdateOrders(updateOrdersState as any);
 
-        // 3. Append to Notifications List
+        // 3. In parallel, run background fetch to reconcile state with any server-computed fields
+        fetchOrdersApi().then((refreshedOrders) => {
+          if (refreshedOrders) {
+            onUpdateOrders(refreshedOrders);
+          }
+        });
+
+        // 4. Append to Notifications List
         setNotificationsList((prev) => [data.notification, ...prev]);
 
-        // 4. Trigger in-app Toast Notification
+        // 5. Trigger in-app Toast Notification
         setActiveToast({
           id: Date.now(),
           orderId: data.order.id,
@@ -132,7 +143,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       fetchNotificationsHistory();
       // Also refresh orders
       fetchOrdersApi().then((refreshed) => {
-        if (refreshed) onUpdateOrders(refreshed);
+        if (refreshed) {
+          onUpdateOrders(refreshed);
+        }
       });
     });
 
@@ -141,7 +154,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       eventSource.close();
       unsubscribeFcm();
     };
-  }, [soundEnabled]);
+  }, [soundEnabled, onUpdateOrders]);
 
 
   // Product modal state (Add / Edit)
