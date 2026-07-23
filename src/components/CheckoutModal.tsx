@@ -151,6 +151,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     };
 
     setTimeout(() => {
+      try {
+        localStorage.setItem('lastOrderPhone', cleanMobile);
+        localStorage.setItem('lastOrderId', newOrder.id);
+      } catch (err) {
+        // ignore localStorage error
+      }
       setIsSubmitting(false);
       onOrderPlaced(newOrder);
     }, 600);

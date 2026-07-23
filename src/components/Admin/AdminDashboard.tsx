@@ -1,13 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Package, ShoppingCart, Settings, Plus, Edit, Trash2, CheckCircle2,
   XCircle, Clock, Truck, DollarSign, Search, ShieldCheck, RefreshCw,
-  Eye, Phone, MessageSquare, Mail, AlertTriangle, X, Upload, Image as ImageIcon,
+  Eye, EyeOff, Lock, Key, Phone, MessageSquare, Mail, AlertTriangle, X, Upload, Image as ImageIcon,
   Share2, Copy, Check
 } from 'lucide-react';
 import { Product, Order, OrderStatus, SiteSettings, Language, GenderCategory, SubCategory } from '../../types';
 import { translations } from '../../data/translations';
-import { saveProductApi, deleteProductApi, updateOrderStatusApi, saveSettingsApi } from '../../utils/api';
+import { saveProductApi, deleteProductApi, updateOrderStatusApi, saveSettingsApi, fetchOrdersApi } from '../../utils/api';
+import { formatWhatsappNumber, generateOrderReceiptText, getGmailComposeUrl } from '../../utils/formatters';
 
 interface AdminDashboardProps {
   language: Language;
@@ -122,6 +123,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Settings form state
   const [settingsForm, setSettingsForm] = useState<SiteSettings>({ ...siteSettings });
   const [settingsSuccessMsg, setSettingsSuccessMsg] = useState(false);
+  const [showAdminPasswordSetting, setShowAdminPasswordSetting] = useState(false);
+
+  // Sync settingsForm whenever siteSettings prop changes
+  useEffect(() => {
+    if (siteSettings) {
+      setSettingsForm({ ...siteSettings });
+    }
+  }, [siteSettings]);
 
   // Calculation Stats
   const totalRevenue = orders
@@ -262,23 +271,78 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   };
 
+  // Real-time status notification state
+  const [statusNotifyMsg, setStatusNotifyMsg] = useState<string | null>(null);
+
   // Change Order Status
-  const handleUpdateOrderStatus = (orderId: string, newStatus: OrderStatus) => {
+  const handleUpdateOrderStatus = async (orderId: string, newStatus: OrderStatus) => {
+    const targetOrder = orders.find((o) => o.id === orderId);
+
     const updated = orders.map((o) =>
       o.id === orderId ? { ...o, status: newStatus } : o
     );
     onUpdateOrders(updated);
-    updateOrderStatusApi(orderId, newStatus);
-    if (selectedOrder && selectedOrder.id === orderId) {
-      setSelectedOrder({ ...selectedOrder, status: newStatus });
+    
+    await updateOrderStatusApi(orderId, newStatus);
+
+    // Refresh orders from API to obtain newly generated courier details
+    const refreshedOrders = await fetchOrdersApi();
+    if (refreshedOrders) {
+      onUpdateOrders(refreshedOrders);
+      const updatedSelect = refreshedOrders.find((o) => o.id === orderId);
+      if (updatedSelect) {
+        setSelectedOrder(updatedSelect);
+      }
     }
+
+    if (targetOrder) {
+      const updatedOrderObj: Order = { ...targetOrder, status: newStatus };
+      const receiptType = newStatus === 'Confirmed' ? 'order_confirmed_customer' : 'status_update_customer';
+      const customerReceiptMsg = generateOrderReceiptText(updatedOrderObj, receiptType);
+      const cleanCustomerMobile = formatWhatsappNumber(updatedOrderObj.customer.mobileNumber);
+
+      if (cleanCustomerMobile) {
+        const customerWaUrl = `https://wa.me/${cleanCustomerMobile}?text=${encodeURIComponent(customerReceiptMsg)}`;
+        window.open(customerWaUrl, '_blank');
+        
+        setStatusNotifyMsg(`Order #${orderId} status updated to "${newStatus}"! Real-time WhatsApp receipt auto-dispatched to Customer (${targetOrder.customer.fullName} - ${targetOrder.customer.mobileNumber}).`);
+        setTimeout(() => setStatusNotifyMsg(null), 6000);
+      }
+    }
+  };
+
+  // Manual WhatsApp receipt dispatch to customer
+  const handleSendCustomerReceiptWhatsapp = (order: Order) => {
+    const receiptMsg = generateOrderReceiptText(
+      order,
+      order.status === 'Confirmed' ? 'order_confirmed_customer' : 'status_update_customer'
+    );
+    const cleanCustomerPhone = formatWhatsappNumber(order.customer.mobileNumber);
+    if (!cleanCustomerPhone) {
+      alert('Invalid mobile number');
+      return;
+    }
+    window.open(`https://wa.me/${cleanCustomerPhone}?text=${encodeURIComponent(receiptMsg)}`, '_blank');
   };
 
   // Save Settings
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
-    onUpdateSettings(settingsForm);
-    saveSettingsApi(settingsForm);
+    const cleanedSettings: SiteSettings = {
+      ...settingsForm,
+      adminPhone: settingsForm.adminPhone.trim(),
+      adminWhatsapp: settingsForm.adminWhatsapp.trim(),
+      adminEmail: settingsForm.adminEmail.trim(),
+      adminAddress: (settingsForm.adminAddress || '').trim(),
+      adminPassword: (settingsForm.adminPassword || 'Admin#2026!Sec').trim(),
+      facebookUrl: (settingsForm.facebookUrl || 'https://www.facebook.com/share/1DQAkf8T7T/').trim(),
+      instagramUrl: (settingsForm.instagramUrl || 'https://www.instagram.com/shopping_solution_').trim(),
+      bkashNumber: settingsForm.bkashNumber.trim(),
+      nagadNumber: settingsForm.nagadNumber.trim(),
+    };
+    setSettingsForm(cleanedSettings);
+    onUpdateSettings(cleanedSettings);
+    saveSettingsApi(cleanedSettings);
     setSettingsSuccessMsg(true);
     setTimeout(() => setSettingsSuccessMsg(false), 3000);
   };
@@ -590,6 +654,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         {/* TAB 3: ORDERS MANAGEMENT */}
         {activeTab === 'orders' && (
           <div className="space-y-6">
+            {/* Real-time status notification alert */}
+            {statusNotifyMsg && (
+              <div className="p-3 bg-emerald-950 border border-emerald-500 text-emerald-300 text-xs rounded-xl flex items-center gap-2 animate-bounce">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                <span>{statusNotifyMsg}</span>
+              </div>
+            )}
+
             <div className="flex flex-wrap items-center justify-between gap-4">
               <h2 className="font-serif text-xl font-bold text-stone-100">
                 Customer Orders ({orders.length})
@@ -675,12 +747,22 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             </select>
                           </td>
                           <td className="p-3 text-right">
-                            <button
-                              onClick={() => setSelectedOrder(o)}
-                              className="px-3 py-1 rounded bg-stone-800 hover:bg-amber-500 text-stone-200 hover:text-stone-950 font-bold transition-all text-[11px]"
-                            >
-                              View
-                            </button>
+                            <div className="flex items-center justify-end gap-1.5">
+                              <button
+                                onClick={() => handleSendCustomerReceiptWhatsapp(o)}
+                                className="px-2 py-1 rounded bg-emerald-900/80 hover:bg-emerald-600 text-emerald-300 hover:text-white font-bold transition-all text-[10px] flex items-center gap-1 border border-emerald-500/30"
+                                title="Send Real-time WhatsApp Receipt to Customer"
+                              >
+                                <MessageSquare className="w-3 h-3" />
+                                <span>WhatsApp</span>
+                              </button>
+                              <button
+                                onClick={() => setSelectedOrder(o)}
+                                className="px-2.5 py-1 rounded bg-stone-800 hover:bg-amber-500 text-stone-200 hover:text-stone-950 font-bold transition-all text-[11px]"
+                              >
+                                View
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -732,6 +814,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     onChange={(e) => setSettingsForm({ ...settingsForm, adminWhatsapp: e.target.value })}
                     className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
                   />
+                  <p className="text-[10px] text-emerald-400/90 mt-1">
+                    ✓ Direct WhatsApp Link Target: <span className="font-mono font-bold">wa.me/{formatWhatsappNumber(settingsForm.adminWhatsapp) || '...'}</span>
+                  </p>
                 </div>
 
                 <div>
@@ -773,6 +858,87 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   />
                 </div>
 
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-stone-300 mb-1">
+                    {t.adminAddress} (Showroom / Office Location):
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Level 4, Shopping Solution Tower, Banani C/A, Dhaka-1213"
+                    value={settingsForm.adminAddress || ''}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, adminAddress: e.target.value })}
+                    className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
+                  />
+                  <p className="text-[10px] text-stone-400 mt-1">
+                    ✓ Reflected across Contact Section, Footer, and Customer Service sections
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 mb-1">
+                    {t.facebookUrl} (Official Page):
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://www.facebook.com/share/..."
+                    value={settingsForm.facebookUrl || ''}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, facebookUrl: e.target.value })}
+                    className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 mb-1">
+                    {t.instagramUrl} (Official Profile):
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://www.instagram.com/..."
+                    value={settingsForm.instagramUrl || ''}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, instagramUrl: e.target.value })}
+                    className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
+                  />
+                </div>
+
+                {/* Admin Password Security Section */}
+                <div className="sm:col-span-2 bg-stone-950/80 border border-amber-500/20 rounded-xl p-4 space-y-2 mt-1">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                      <Lock className="w-3.5 h-3.5" />
+                      <span>{t.changeAdminPassword} ({language === 'en' ? 'Private Admin Password' : 'গোপন এডমিন পাসওয়ার্ড'}):</span>
+                    </label>
+                    <span className="text-[10px] text-stone-400">
+                      🔒 {language === 'en' ? 'Only visible to logged-in admin' : 'শুধুমাত্র লগইনকৃত এডমিন দেখতে ও পরিবর্তন করতে পারবেন'}
+                    </span>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type={showAdminPasswordSetting ? 'text' : 'password'}
+                      required
+                      value={settingsForm.adminPassword || 'Admin#2026!Sec'}
+                      onChange={(e) => setSettingsForm({ ...settingsForm, adminPassword: e.target.value })}
+                      placeholder="Enter new admin password"
+                      className="w-full bg-stone-900 border border-stone-800 rounded-lg pl-3 pr-10 py-2 text-xs text-stone-100 font-mono focus:border-amber-400 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowAdminPasswordSetting(!showAdminPasswordSetting)}
+                      className="absolute right-3 top-2.5 text-stone-400 hover:text-stone-200 transition-colors"
+                      title={showAdminPasswordSetting ? 'Hide password' : 'Show password'}
+                    >
+                      {showAdminPasswordSetting ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-stone-400">
+                    {language === 'en'
+                      ? 'Note: This password is fully hidden from visitors. Only users who enter this password can access this Admin Portal.'
+                      : 'নোট: এই পাসওয়ার্ডটি ভিজিটরদের কাছে সম্পূর্ণ গোপন থাকবে। শুধুমাত্র এই পাসওয়ার্ড জানা ব্যবহারকারীরা এডমিন প্যানেলে প্রবেশ করতে পারবেন।'}
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1">
                     {t.insideDhakaFee}:
@@ -786,7 +952,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   />
                 </div>
 
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1">
                     {t.outsideDhakaFee}:
                   </label>
@@ -797,6 +963,24 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     onChange={(e) => setSettingsForm({ ...settingsForm, deliveryFeeOutsideDhaka: Number(e.target.value) })}
                     className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
                   />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-bold text-amber-400 mb-1 flex items-center gap-1">
+                    <Truck className="w-3.5 h-3.5" />
+                    <span>Default Courier Integration Partner:</span>
+                  </label>
+                  <select
+                    value={settingsForm.defaultCourier || 'Steadfast'}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, defaultCourier: e.target.value as any })}
+                    className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none cursor-pointer"
+                  >
+                    <option value="Steadfast">Steadfast Courier (BD)</option>
+                    <option value="Pathao">Pathao Courier (BD)</option>
+                  </select>
+                  <p className="text-[10px] text-stone-400 mt-1">
+                    ✓ Consignment orders will be booked automatically with this carrier when you set an order status to "Confirmed".
+                  </p>
                 </div>
               </div>
 
@@ -886,6 +1070,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <option value="Hoodie">{t.hoodie}</option>
                     <option value="Dress">{t.dress}</option>
                     <option value="Traditional">{t.traditional}</option>
+                    <option value="Watch">{t.watch}</option>
                   </select>
                 </div>
 
@@ -1133,6 +1318,34 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
               </div>
 
+              {/* Courier Tracking Info (Admin Side) */}
+              {selectedOrder.courierTrackingId ? (
+                <div className="p-3 bg-stone-950 border border-stone-800 rounded-xl space-y-1">
+                  <span className="font-bold text-amber-400 block">Courier Integration Details:</span>
+                  <div className="grid grid-cols-2 gap-2 text-stone-300">
+                    <div>
+                      <p className="text-[10px] text-stone-500">Courier Partner:</p>
+                      <p className="font-bold text-stone-200">{selectedOrder.courierName}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-stone-500">Tracking Code:</p>
+                      <p className="font-mono font-bold text-amber-400">{selectedOrder.courierTrackingId}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-stone-500">Consignment Status:</p>
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-400">
+                        {selectedOrder.courierStatus || 'Processing'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ) : selectedOrder.status === 'Confirmed' ? (
+                <div className="p-3 bg-amber-950/20 border border-amber-500/30 rounded-xl text-center">
+                  <p className="text-amber-400 font-bold mb-1">Booking Consignment...</p>
+                  <p className="text-[10px] text-stone-400">Automatic booking with Steadfast or Pathao is initiated when status is changed to Confirmed.</p>
+                </div>
+              ) : null}
+
               {/* Status Update Controls */}
               <div className="pt-2 border-t border-stone-800 flex items-center justify-between">
                 <span className="font-bold text-stone-300">{t.changeStatus}:</span>
@@ -1149,7 +1362,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </div>
             </div>
 
-            <div className="pt-2 flex justify-end">
+            <div className="pt-3 border-t border-stone-800 flex items-center justify-between gap-3">
+              <button
+                onClick={() => handleSendCustomerReceiptWhatsapp(selectedOrder)}
+                className="py-2 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 shadow-lg"
+              >
+                <MessageSquare className="w-4 h-4" />
+                <span>Send WhatsApp Receipt</span>
+              </button>
+
               <button
                 onClick={() => setSelectedOrder(null)}
                 className="py-2 px-5 bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold rounded-xl"

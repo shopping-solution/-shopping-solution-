@@ -76,6 +76,18 @@ export async function updateOrderStatusApi(id: string, status: string): Promise<
   }
 }
 
+export async function fetchLiveTrackingApi(id: string): Promise<Order | null> {
+  try {
+    const res = await fetch(`/api/orders/${id}/tracking`);
+    if (res.ok) {
+      return await res.json();
+    }
+  } catch (e) {
+    console.warn('API fetch live tracking error:', e);
+  }
+  return null;
+}
+
 export async function fetchSettingsApi(): Promise<SiteSettings | null> {
   try {
     const res = await fetch('/api/settings');

@@ -4,6 +4,10 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
   adminPhone: '+8801712345678',
   adminWhatsapp: '+8801712345678',
   adminEmail: 'admin@shoppingsolution.com',
+  adminAddress: 'Level 4, Shopping Solution Tower, Banani C/A, Dhaka-1213, Bangladesh',
+  adminPassword: 'Admin#2026!Sec',
+  facebookUrl: 'https://www.facebook.com/share/1DQAkf8T7T/',
+  instagramUrl: 'https://www.instagram.com/shopping_solution_',
   bkashNumber: '01712345678',
   nagadNumber: '01812345678',
   deliveryFeeInsideDhaka: 70,
@@ -254,5 +258,53 @@ export const INITIAL_PRODUCTS: Product[] = [
     isBestSelling: false,
     isNewAdded: true,
     createdAt: new Date(Date.now() - 200000000).toISOString()
+  },
+  {
+    id: 'prod-m-watch1',
+    name: 'Chronograph Regal Men Black Leather Quartz Watch',
+    nameBn: 'ক্রোনোগ্রাফ রিগাল পুরুষদের ব্ল্যাক লেদার কুয়ার্টজ ঘড়ি',
+    gender: 'men',
+    category: 'Watch',
+    price: 4500,
+    oldPrice: 5800,
+    discountPercent: 22,
+    description: 'Precision luxury quartz watch with analog chronograph sub-dials, midnight black alloy casing, and premium handcrafted genuine leather strap. Water resistant up to 50 meters.',
+    descriptionBn: 'আভিজাত্য ও নিখুঁত কারুকার্যের ক্রোনোগ্রাফ হাতঘড়ি। কালো অ্যালয় কেসিং এবং খাঁটি লেদার স্ট্র্যাপের এক অপূর্ব সমন্বয়। ৫০ মিটার গভীর পর্যন্ত পানি নিরোধক।',
+    images: [
+      'https://images.unsplash.com/photo-1524592094714-0f0654e20314?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?auto=format&fit=crop&q=80&w=800'
+    ],
+    colors: ['Black', 'Navy'],
+    sizes: ['M', 'L'],
+    stock: 15,
+    inStock: true,
+    isTrending: true,
+    isBestSelling: true,
+    isNewAdded: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'prod-w-watch1',
+    name: 'Elegant Minimalist Rose Gold Women Mesh Watch',
+    nameBn: 'এলিজেন্ট মিনিমালিস্ট রোজ গোল্ড নারীদের মেশ ঘড়ি',
+    gender: 'women',
+    category: 'Watch',
+    price: 3800,
+    oldPrice: 4800,
+    discountPercent: 20,
+    description: 'Sophisticated women wristwatch designed with ultra-slim dial plate, rose gold metallic plating, and adjustable mesh stainless steel strap. Minimal luxury at its absolute finest.',
+    descriptionBn: 'অত্যন্ত আকর্ষণীয় ও আল্ট্রা স্লিম ডায়াল প্লেটের রোজ গোল্ড হাতঘড়ি। স্টেইনলেস স্টিলের এডজাস্টেবল মেশ বেল্ট যা নারীদের আভিজাত্যকে আরও বহুগুণ বাড়িয়ে দেয়।',
+    images: [
+      'https://images.unsplash.com/photo-1522312346375-d1a52e2b99b3?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1524592094714-0f0654e20314?auto=format&fit=crop&q=80&w=800'
+    ],
+    colors: ['White', 'Black'],
+    sizes: ['S', 'M'],
+    stock: 18,
+    inStock: true,
+    isTrending: true,
+    isBestSelling: false,
+    isNewAdded: true,
+    createdAt: new Date().toISOString()
   }
 ];

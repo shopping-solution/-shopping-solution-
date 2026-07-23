@@ -40,6 +40,9 @@ export const orders = pgTable('orders', {
   transactionId: text('transaction_id'),
   status: text('status').notNull().default('Pending'),
   createdAt: text('created_at').notNull(),
+  courierName: text('courier_name'),
+  courierTrackingId: text('courier_tracking_id'),
+  courierStatus: text('courier_status'),
 });
 
 export const siteSettings = pgTable('site_settings', {
@@ -47,8 +50,13 @@ export const siteSettings = pgTable('site_settings', {
   adminPhone: text('admin_phone').notNull(),
   adminWhatsapp: text('admin_whatsapp').notNull(),
   adminEmail: text('admin_email').notNull(),
+  adminAddress: text('admin_address'),
+  adminPassword: text('admin_password'),
+  facebookUrl: text('facebook_url'),
+  instagramUrl: text('instagram_url'),
   bkashNumber: text('bkash_number').notNull(),
   nagadNumber: text('nagad_number').notNull(),
   deliveryFeeInsideDhaka: integer('delivery_fee_inside_dhaka').notNull(),
   deliveryFeeOutsideDhaka: integer('delivery_fee_outside_dhaka').notNull(),
+  defaultCourier: text('default_courier'),
 });

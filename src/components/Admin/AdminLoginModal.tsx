@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { X, ShieldCheck, Lock, Key, AlertCircle } from 'lucide-react';
-import { Language } from '../../types';
+import { X, ShieldCheck, Lock, Key, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { Language, SiteSettings } from '../../types';
 import { translations } from '../../data/translations';
 
 interface AdminLoginModalProps {
   isOpen: boolean;
   language: Language;
+  siteSettings: SiteSettings;
   onClose: () => void;
   onLoginSuccess: () => void;
 }
@@ -13,6 +14,7 @@ interface AdminLoginModalProps {
 export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   isOpen,
   language,
+  siteSettings,
   onClose,
   onLoginSuccess,
 }) => {
@@ -21,21 +23,23 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
   const t = translations[language];
 
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (password === 'admin123' || password === 'admin') {
+    const correctPassword = siteSettings.adminPassword || 'Admin#2026!Sec';
+    if (password.trim() === correctPassword) {
       setError(null);
+      setPassword('');
       onLoginSuccess();
     } else {
-      setError(language === 'en' ? 'Incorrect password! Use: admin123' : 'ভুল পাসওয়ার্ড! ডেমো পাসওয়ার্ড: admin123');
+      setError(
+        language === 'en'
+          ? 'Incorrect admin password! Please try again.'
+          : 'ভুল পাসওয়ার্ড! সঠিক পাসওয়ার্ড দিয়ে চেষ্টা করুন।'
+      );
     }
-  };
-
-  const handleQuickDemo = () => {
-    setPassword('admin123');
-    setError(null);
   };
 
   return (
@@ -79,34 +83,30 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
             </label>
             <div className="relative">
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value);
                   setError(null);
                 }}
-                placeholder="Enter password (admin123)"
+                placeholder={language === 'en' ? 'Enter admin password' : 'এডমিন পাসওয়ার্ড লিখুন'}
                 className="w-full bg-stone-950 border border-stone-800 rounded-xl px-3 py-2.5 text-xs text-stone-100 focus:border-amber-400 focus:outline-none pr-10"
               />
-              <Key className="w-4 h-4 text-stone-500 absolute right-3 top-3" />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-3 text-stone-500 hover:text-stone-300 transition-colors"
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
-          </div>
-
-          <div className="flex items-center justify-between text-[11px] pt-1">
-            <button
-              type="button"
-              onClick={handleQuickDemo}
-              className="text-amber-400 hover:underline flex items-center gap-1 cursor-pointer"
-            >
-              <span>🔑 {t.quickFillDemo}</span>
-            </button>
-            <span className="text-stone-500">Default: admin123</span>
           </div>
 
           <button
             type="submit"
-            className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-extrabold text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-extrabold text-xs shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
           >
             <ShieldCheck className="w-4 h-4" />
             <span>{t.login}</span>

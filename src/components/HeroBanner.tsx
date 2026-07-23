@@ -28,7 +28,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ language, onNavigate }) 
             <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 text-xs font-semibold tracking-widest uppercase">
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
               <span>
-                {language === 'en' ? 'New Summer Luxury Edition' : 'নতুন সামার লাক্সারি সংস্করণ'}
+                {language === 'en' ? 'New Luxury Edition' : 'নতুন লাক্সারি সংস্করণ'}
               </span>
             </div>
 

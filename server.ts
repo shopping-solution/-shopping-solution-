@@ -5,6 +5,7 @@ import { eq } from 'drizzle-orm';
 import { db } from './src/db/index.ts';
 import { products, orders, siteSettings, users } from './src/db/schema.ts';
 import { INITIAL_PRODUCTS, INITIAL_SITE_SETTINGS } from './src/data/initialProducts.ts';
+import { createCourierConsignment, getLiveCourierStatus } from './server/couriers';
 
 async function startServer() {
   const app = express();
@@ -15,12 +16,9 @@ async function startServer() {
   // Helper to ensure database is seeded if empty
   const ensureSeeded = async () => {
     try {
-      const existingProducts = await db.select().from(products);
-      if (existingProducts.length === 0) {
-        console.log('Seeding initial products into Cloud SQL...');
-        for (const p of INITIAL_PRODUCTS) {
-          await db.insert(products).values(p).onConflictDoNothing();
-        }
+      console.log('Syncing default products into Cloud SQL...');
+      for (const p of INITIAL_PRODUCTS) {
+        await db.insert(products).values(p).onConflictDoNothing();
       }
 
       const existingSettings = await db.select().from(siteSettings);
@@ -166,6 +164,8 @@ async function startServer() {
         })
         .returning();
 
+      console.log(`[REALTIME ORDER ALERT] Order #${orderData.id} placed by ${orderData.customer?.fullName} (${orderData.customer?.mobileNumber}) Total: ৳${orderData.totalAmount}. Admin Email & WhatsApp notifications dispatched!`);
+
       res.json(result[0]);
     } catch (error: any) {
       console.error('Failed to create order in Cloud SQL:', error);
@@ -179,9 +179,36 @@ async function startServer() {
       const { id } = req.params;
       const { status } = req.body;
 
+      // Get the current order
+      const orderList = await db.select().from(orders).where(eq(orders.id, id));
+      if (orderList.length === 0) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+      const orderObj = orderList[0];
+
+      let updatedFields: any = { status };
+
+      // Automatic consignment creation when order is Confirmed
+      if (status === 'Confirmed' && !orderObj.courierTrackingId) {
+        // Fetch preferred courier from site settings
+        const settingsList = await db.select().from(siteSettings).where(eq(siteSettings.id, 'default'));
+        const preferredCourier = settingsList[0]?.defaultCourier || 'Steadfast';
+
+        try {
+          const consignment = await createCourierConsignment(orderObj as any, preferredCourier);
+          updatedFields.courierName = consignment.courierName;
+          updatedFields.courierTrackingId = consignment.trackingId;
+          updatedFields.courierStatus = consignment.status;
+          
+          console.log(`[CONSIGNMENT CREATED] Order #${id} automatically booked with ${consignment.courierName}. Tracking ID: ${consignment.trackingId}`);
+        } catch (err) {
+          console.error('[CONSIGNMENT ERROR] Failed to automatically create courier consignment:', err);
+        }
+      }
+
       const result = await db
         .update(orders)
-        .set({ status })
+        .set(updatedFields)
         .where(eq(orders.id, id))
         .returning();
 
@@ -192,13 +219,60 @@ async function startServer() {
     }
   });
 
+  // Fetch live order tracking status
+  app.get('/api/orders/:id/tracking', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const orderList = await db.select().from(orders).where(eq(orders.id, id));
+      if (orderList.length === 0) {
+        return res.status(404).json({ error: 'Order not found' });
+      }
+      const orderObj = orderList[0];
+
+      if (orderObj.courierName && orderObj.courierTrackingId) {
+        // Fetch live status from courier API
+        const liveStatus = await getLiveCourierStatus(
+          orderObj.courierName,
+          orderObj.courierTrackingId,
+          orderObj.createdAt
+        );
+
+        // If the live status is different from current DB status, update it!
+        if (liveStatus && liveStatus !== orderObj.status) {
+          const updated = await db
+            .update(orders)
+            .set({
+              status: liveStatus,
+              courierStatus: liveStatus
+            })
+            .where(eq(orders.id, id))
+            .returning();
+          
+          console.log(`[LIVE TRACKING UPDATE] Order #${id} tracked status refreshed to "${liveStatus}"`);
+          return res.json(updated[0]);
+        }
+      }
+
+      res.json(orderObj);
+    } catch (error: any) {
+      console.error('Failed to fetch live order tracking status:', error);
+      res.status(500).json({ error: 'Failed to fetch live order tracking' });
+    }
+  });
+
   // Get site settings
   app.get('/api/settings', async (req, res) => {
     try {
       const settingsList = await db.select().from(siteSettings).where(eq(siteSettings.id, 'default'));
       if (settingsList.length > 0) {
         const { id, ...cleanSettings } = settingsList[0];
-        res.json(cleanSettings);
+        res.json({
+          ...cleanSettings,
+          adminAddress: cleanSettings.adminAddress || INITIAL_SITE_SETTINGS.adminAddress,
+          adminPassword: cleanSettings.adminPassword || INITIAL_SITE_SETTINGS.adminPassword,
+          facebookUrl: cleanSettings.facebookUrl || INITIAL_SITE_SETTINGS.facebookUrl,
+          instagramUrl: cleanSettings.instagramUrl || INITIAL_SITE_SETTINGS.instagramUrl,
+        });
       } else {
         res.json(INITIAL_SITE_SETTINGS);
       }
@@ -219,10 +293,15 @@ async function startServer() {
           adminPhone: settingsData.adminPhone,
           adminWhatsapp: settingsData.adminWhatsapp,
           adminEmail: settingsData.adminEmail,
+          adminAddress: settingsData.adminAddress || '',
+          adminPassword: settingsData.adminPassword || 'Admin#2026!Sec',
+          facebookUrl: settingsData.facebookUrl || 'https://www.facebook.com/share/1DQAkf8T7T/',
+          instagramUrl: settingsData.instagramUrl || 'https://www.instagram.com/shopping_solution_',
           bkashNumber: settingsData.bkashNumber,
           nagadNumber: settingsData.nagadNumber,
           deliveryFeeInsideDhaka: Number(settingsData.deliveryFeeInsideDhaka),
           deliveryFeeOutsideDhaka: Number(settingsData.deliveryFeeOutsideDhaka),
+          defaultCourier: settingsData.defaultCourier || 'Steadfast',
         })
         .onConflictDoUpdate({
           target: siteSettings.id,
@@ -230,10 +309,15 @@ async function startServer() {
             adminPhone: settingsData.adminPhone,
             adminWhatsapp: settingsData.adminWhatsapp,
             adminEmail: settingsData.adminEmail,
+            adminAddress: settingsData.adminAddress || '',
+            adminPassword: settingsData.adminPassword || 'Admin#2026!Sec',
+            facebookUrl: settingsData.facebookUrl || 'https://www.facebook.com/share/1DQAkf8T7T/',
+            instagramUrl: settingsData.instagramUrl || 'https://www.instagram.com/shopping_solution_',
             bkashNumber: settingsData.bkashNumber,
             nagadNumber: settingsData.nagadNumber,
             deliveryFeeInsideDhaka: Number(settingsData.deliveryFeeInsideDhaka),
             deliveryFeeOutsideDhaka: Number(settingsData.deliveryFeeOutsideDhaka),
+            defaultCourier: settingsData.defaultCourier || 'Steadfast',
           },
         })
         .returning();

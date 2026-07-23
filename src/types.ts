@@ -2,8 +2,8 @@ export type Language = 'en' | 'bn';
 
 export type GenderCategory = 'men' | 'women' | 'unisex';
 
-export type MenSubCategory = 'T-Shirt' | 'Shirt' | 'Polo' | 'Pants' | 'Hoodie';
-export type WomenSubCategory = 'T-Shirt' | 'Shirt' | 'Dress' | 'Pants' | 'Hoodie' | 'Traditional';
+export type MenSubCategory = 'T-Shirt' | 'Shirt' | 'Polo' | 'Pants' | 'Hoodie' | 'Watch';
+export type WomenSubCategory = 'T-Shirt' | 'Shirt' | 'Dress' | 'Pants' | 'Hoodie' | 'Traditional' | 'Watch';
 
 export type SubCategory = MenSubCategory | WomenSubCategory;
 
@@ -38,7 +38,7 @@ export interface CartItem {
 
 export type PaymentMethod = 'bKash' | 'Nagad' | 'COD';
 
-export type OrderStatus = 'Pending' | 'Confirmed' | 'Delivered' | 'Cancelled';
+export type OrderStatus = 'Pending' | 'Confirmed' | 'Processing' | 'Shipped' | 'Delivered' | 'Cancelled';
 
 export interface CustomerAddress {
   fullName: string;
@@ -62,14 +62,22 @@ export interface Order {
   transactionId?: string;
   status: OrderStatus;
   createdAt: string;
+  courierName?: string;
+  courierTrackingId?: string;
+  courierStatus?: string;
 }
 
 export interface SiteSettings {
   adminPhone: string;
   adminWhatsapp: string;
   adminEmail: string;
+  adminAddress: string;
+  adminPassword?: string;
+  facebookUrl?: string;
+  instagramUrl?: string;
   bkashNumber: string;
   nagadNumber: string;
   deliveryFeeInsideDhaka: number;
   deliveryFeeOutsideDhaka: number;
+  defaultCourier?: string;
 }

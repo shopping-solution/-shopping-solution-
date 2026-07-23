@@ -53,6 +53,7 @@ export const translations = {
     hoodie: 'Hoodie',
     dress: 'Dress',
     traditional: 'Traditional / Saree',
+    watch: 'Watch',
     
     // Filters & Sorting
     searchPlaceholder: 'Search by name, category...',
@@ -119,8 +120,9 @@ export const translations = {
     // Admin Panel
     adminLoginTitle: 'Secure Admin Access',
     adminPassword: 'Admin Password',
+    enterAdminPassword: 'Enter admin password',
+    changeAdminPassword: 'Change Admin Password',
     login: 'Login',
-    quickFillDemo: 'Fill Demo Password',
     adminDashboard: 'Admin Dashboard',
     logout: 'Logout',
     overviewStats: 'Overview Statistics',
@@ -166,6 +168,9 @@ export const translations = {
     insideDhakaFee: 'Delivery Fee Inside Dhaka (৳)',
     outsideDhakaFee: 'Delivery Fee Outside Dhaka (৳)',
     adminEmail: 'Admin Gmail Address',
+    adminAddress: 'Customer Care & Showroom Location',
+    facebookUrl: 'Facebook Page Link',
+    instagramUrl: 'Instagram Profile Link',
     bkashPersonal: 'Admin bKash Number',
     nagadPersonal: 'Admin Nagad Number',
     settingsUpdated: 'Site settings updated successfully!',
@@ -239,6 +244,7 @@ export const translations = {
     hoodie: 'হুডি',
     dress: 'ড্রেস',
     traditional: 'শাড়ি / ট্র্যাডিশনাল',
+    watch: 'ঘড়ি',
     
     // Filters & Sorting
     searchPlaceholder: 'পণ্যের নাম বা ক্যাটাগরি দিয়ে খুঁজুন...',
@@ -303,10 +309,11 @@ export const translations = {
     noReturnHome: 'না, হোমে ফিরে যান',
     
     // Admin Panel
-    adminLoginTitle: 'এডমিন প্যানেল লগইন',
+    adminLoginTitle: 'এডমিন প্যানেল সিকিউর লগইন',
     adminPassword: 'এডমিন পাসওয়ার্ড',
+    enterAdminPassword: 'এডমিন পাসওয়ার্ড লিখুন',
+    changeAdminPassword: 'এডমিন পাসওয়ার্ড পরিবর্তন করুন',
     login: 'লগইন করুন',
-    quickFillDemo: 'ডেমো পাসওয়ার্ড ইনপুট করুন',
     adminDashboard: 'এডমিন ড্যাশবোর্ড',
     logout: 'লগআউট',
     overviewStats: 'সার্বিক ওভারভিউ',
@@ -352,6 +359,9 @@ export const translations = {
     insideDhakaFee: 'ঢাকার মধ্যে ডেলিভারি চার্জ (৳)',
     outsideDhakaFee: 'ঢাকার বাইরে ডেলিভারি চার্জ (৳)',
     adminEmail: 'এডমিন জিমেইল অ্যাড্রেস',
+    adminAddress: 'কাস্টমার কেয়ার ও শোরুমের ঠিকানা',
+    facebookUrl: 'ফেসবুক পেজ লিংক',
+    instagramUrl: 'ইনস্টাগ্রাম প্রোফাইল লিংক',
     bkashPersonal: 'এডমিন বিকাশ নম্বর',
     nagadPersonal: 'এডমিন নগদ নম্বর',
     settingsUpdated: 'সাইটের সেটিংস সফলভাবে আপডেট করা হয়েছে!',

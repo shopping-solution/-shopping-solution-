@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ShoppingBag, Search, Menu, X, Globe, UserCheck, PhoneCall, ShieldCheck } from 'lucide-react';
+import { ShoppingBag, Search, Menu, X, Globe, UserCheck, PhoneCall, ShieldCheck, PackageSearch } from 'lucide-react';
 import { Language, SiteSettings } from '../types';
 import { translations } from '../data/translations';
 
@@ -8,6 +8,7 @@ interface NavbarProps {
   onLanguageChange: (lang: Language) => void;
   cartCount: number;
   onOpenCart: () => void;
+  onOpenTrackOrder: () => void;
   currentView: 'home' | 'men' | 'women' | 'contact' | 'admin';
   onNavigate: (view: 'home' | 'men' | 'women' | 'contact' | 'admin') => void;
   searchQuery: string;
@@ -22,6 +23,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   onLanguageChange,
   cartCount,
   onOpenCart,
+  onOpenTrackOrder,
   currentView,
   onNavigate,
   searchQuery,
@@ -117,6 +119,17 @@ export const Navbar: React.FC<NavbarProps> = ({
               }`}
             >
               {t.navContact}
+            </button>
+
+            {/* Track Order / My Orders Live Button */}
+            <button
+              onClick={onOpenTrackOrder}
+              className="px-3.5 py-1.5 text-xs rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/40 hover:bg-amber-500 hover:text-stone-950 font-bold transition-all flex items-center gap-1.5 shadow-md group"
+              title="Track Order & Check Realtime Status"
+            >
+              <PackageSearch className="w-3.5 h-3.5 text-amber-400 group-hover:text-stone-950" />
+              <span>{language === 'en' ? 'Track Order' : 'অর্ডার ট্র্যাক'}</span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
             </button>
             
             {/* WhatsApp Admin Direct Link */}
@@ -254,6 +267,20 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             {t.navContact}
+          </button>
+
+          <button
+            onClick={() => {
+              onOpenTrackOrder();
+              setMobileMenuOpen(false);
+            }}
+            className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-between"
+          >
+            <div className="flex items-center gap-2">
+              <PackageSearch className="w-4 h-4 text-amber-400" />
+              <span>{language === 'en' ? 'Track Order & Status' : 'অর্ডার ট্র্যাক ও স্টেটাস'}</span>
+            </div>
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           </button>
 
           <div className="pt-2 border-t border-stone-800 flex items-center justify-between">

@@ -1,13 +1,15 @@
-import React from 'react';
-import { CheckCircle2, MessageSquare, Mail, Printer, ArrowLeft, ShoppingBag } from 'lucide-react';
+import React, { useEffect } from 'react';
+import { CheckCircle2, MessageSquare, Mail, Printer, ArrowLeft, ShoppingBag, Zap, PackageSearch } from 'lucide-react';
 import { Order, SiteSettings, Language } from '../types';
 import { translations } from '../data/translations';
+import { formatWhatsappNumber, getGmailComposeUrl, getMailtoUrl, generateOrderReceiptText } from '../utils/formatters';
 
 interface OrderSuccessModalProps {
   order: Order | null;
   siteSettings: SiteSettings;
   language: Language;
   onClose: () => void;
+  onOpenTrackOrder?: () => void;
 }
 
 export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
@@ -15,44 +17,45 @@ export const OrderSuccessModal: React.FC<OrderSuccessModalProps> = ({
   siteSettings,
   language,
   onClose,
+  onOpenTrackOrder,
 }) => {
   if (!order) return null;
 
   const t = translations[language];
 
-  // Generate WhatsApp Message text
-  const cleanPhone = siteSettings.adminWhatsapp.replace(/[^0-9]/g, '');
-  const itemsText = order.items
-    .map(
-      (item) =>
-        `• ${item.product.name} [Size: ${item.selectedSize}, Color: ${item.selectedColor}, Qty: ${item.quantity}] = ৳${item.product.price * item.quantity}`
-    )
-    .join('\n');
+  // Generate full order receipt for admin
+  const cleanWhatsapp = formatWhatsappNumber(siteSettings.adminWhatsapp);
+  const rawWhatsappMsg = generateOrderReceiptText(order, 'new_order_admin');
 
-  const rawWhatsappMsg = `*NEW ORDER NOTIFICATION - SHOPPING SOLUTION*
-Order ID: #${order.id}
-Time: ${new Date(order.createdAt).toLocaleString()}
+  const whatsappUrl = `https://wa.me/${cleanWhatsapp}?text=${encodeURIComponent(rawWhatsappMsg)}`;
+  
+  const emailSubject = `🚨 NEW ORDER #${order.id} - ৳${order.totalAmount} (${order.customer.fullName})`;
+  const gmailUrl = getGmailComposeUrl(siteSettings.adminEmail, emailSubject, rawWhatsappMsg);
+  const mailtoUrl = getMailtoUrl(siteSettings.adminEmail, emailSubject, rawWhatsappMsg);
 
-*CUSTOMER DETAILS:*
-Name: ${order.customer.fullName}
-Phone: ${order.customer.mobileNumber}
-Address: ${order.customer.houseNumber}, ${order.customer.village}, ${order.customer.upazila}, ${order.customer.district}, ${order.customer.division}
-${order.customer.optionalDetails ? `Notes: ${order.customer.optionalDetails}` : ''}
-
-*ORDERED ITEMS:*
-${itemsText}
-
-*PAYMENT SUMMARY:*
-Subtotal: ৳${order.subtotal}
-Delivery Fee: ৳${order.deliveryFee}
-Total Amount: ৳${order.totalAmount}
-Payment Method: ${order.paymentMethod}
-${order.transactionId ? `Trx ID: ${order.transactionId}` : ''}`;
-
-  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(rawWhatsappMsg)}`;
+  // Auto trigger WhatsApp window to send real-time notification to Admin WhatsApp
+  useEffect(() => {
+    if (order && cleanWhatsapp) {
+      const timer = setTimeout(() => {
+        window.open(whatsappUrl, '_blank');
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [order?.id]);
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleGmailClick = () => {
+    if (!siteSettings.adminEmail) {
+      alert(language === 'en' ? 'Admin email is not configured.' : 'এডমিন ইমেইল যুক্ত করা নেই।');
+      return;
+    }
+    const newWin = window.open(gmailUrl, '_blank');
+    if (!newWin) {
+      window.location.href = mailtoUrl;
+    }
   };
 
   return (
@@ -81,6 +84,35 @@ ${order.transactionId ? `Trx ID: ${order.transactionId}` : ''}`;
             {t.thankYouMessage}
           </p>
 
+          {/* Real-time Notification Dispatch Badge */}
+          <div className="p-3 bg-emerald-950/90 border border-emerald-500/50 rounded-xl text-emerald-300 text-xs flex items-center gap-2 print:hidden">
+            <Zap className="w-4 h-4 text-emerald-400 flex-shrink-0 animate-pulse" />
+            <span>
+              {language === 'en'
+                ? '⚡ Real-time Order Receipt & Notification auto-dispatched to Admin WhatsApp & Email!'
+                : '⚡ রসিদ সহ অর্ডারের নোটিফিকেশন রিয়েল-টাইমে এডমিনের হোয়াটসঅ্যাপ এবং জিমেইলে পাঠানো হয়েছে!'}
+            </span>
+          </div>
+
+          {/* Real-time Order Tracking Trigger Button */}
+          {onOpenTrackOrder && (
+            <button
+              onClick={() => {
+                onClose();
+                onOpenTrackOrder();
+              }}
+              className="w-full py-3 px-4 rounded-xl bg-amber-500/20 hover:bg-amber-500 text-amber-400 hover:text-stone-950 border border-amber-500/40 font-bold text-xs transition-all flex items-center justify-center gap-2 shadow-lg print:hidden"
+            >
+              <PackageSearch className="w-4 h-4" />
+              <span>
+                {language === 'en'
+                  ? '🔍 Track Live Confirmation & Order Status'
+                  : '🔍 লাইভ অর্ডার কনফার্মেশন ও স্টেটাস ট্রাক করুন'}
+              </span>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            </button>
+          )}
+
           {/* Quick Notification Triggers */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 print:hidden">
             <a
@@ -94,17 +126,11 @@ ${order.transactionId ? `Trx ID: ${order.transactionId}` : ''}`;
             </a>
 
             <button
-              onClick={() => {
-                alert(
-                  language === 'en'
-                    ? `Simulated order notification sent to Admin Gmail (${siteSettings.adminEmail})!`
-                    : `এডমিন জিমেইলে (${siteSettings.adminEmail}) অর্ডারের নোটিফিকেশন পাঠানো হয়েছে!`
-                );
-              }}
-              className="py-3 px-4 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700 font-bold text-xs transition-all flex items-center justify-center gap-2"
+              onClick={handleGmailClick}
+              className="py-3 px-4 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-200 border border-stone-700 font-bold text-xs transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <Mail className="w-4 h-4 text-amber-400" />
-              <span>{t.notifyAdminGmail}</span>
+              <span>{t.notifyAdminGmail} ({siteSettings.adminEmail || 'Gmail'})</span>
             </button>
           </div>
 

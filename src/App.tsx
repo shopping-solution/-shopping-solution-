@@ -18,6 +18,7 @@ import {
   fetchProductsApi, fetchOrdersApi, fetchSettingsApi,
   createOrderApi, seedDefaultsApi
 } from './utils/api';
+import { formatWhatsappNumber } from './utils/formatters';
 
 import { Navbar } from './components/Navbar';
 import { HeroBanner } from './components/HeroBanner';
@@ -29,6 +30,7 @@ import { OrderSuccessModal } from './components/OrderSuccessModal';
 import { ContactSection } from './components/ContactSection';
 import { AdminLoginModal } from './components/Admin/AdminLoginModal';
 import { AdminDashboard } from './components/Admin/AdminDashboard';
+import { TrackOrderModal } from './components/TrackOrderModal';
 import { Footer } from './components/Footer';
 
 export default function App() {
@@ -56,6 +58,15 @@ export default function App() {
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<Order | null>(null);
   const [isAdminLoginOpen, setIsAdminLoginOpen] = useState(false);
+  const [isTrackOrderOpen, setIsTrackOrderOpen] = useState(false);
+
+  // Refresh orders from API for live tracking
+  const handleRefreshOrders = async () => {
+    const apiOrders = await fetchOrdersApi();
+    if (apiOrders) {
+      setOrders(apiOrders);
+    }
+  };
 
   // Fetch initial state from Cloud SQL API
   useEffect(() => {
@@ -141,6 +152,21 @@ export default function App() {
   }, [cart]);
 
   const t = translations[language];
+
+  // Localized Subcategory Label Helper
+  const getSubCategoryLabel = (sub: string) => {
+    if (sub === 'All') return t.allCategories;
+    const key = sub.toLowerCase().replace(/[\s\-\/]/g, '');
+    if (key === 'tshirt') return t.tshirt;
+    if (key === 'shirt') return t.shirt;
+    if (key === 'polo') return t.polo;
+    if (key === 'pants') return t.pants;
+    if (key === 'hoodie') return t.hoodie;
+    if (key === 'dress') return t.dress;
+    if (key === 'traditional') return t.traditional;
+    if (key === 'watch') return t.watch;
+    return sub;
+  };
 
   // Total cart item count
   const cartItemCount = cart.reduce((sum, item) => sum + item.quantity, 0);
@@ -279,6 +305,7 @@ export default function App() {
         onLanguageChange={setLanguage}
         cartCount={cartItemCount}
         onOpenCart={() => setIsCartOpen(true)}
+        onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
         currentView={currentView}
         onNavigate={(view) => {
           if (view === 'admin' && !isAdmin) {
@@ -346,7 +373,7 @@ export default function App() {
               {/* Subcategories Filter Bar for Men or Women */}
               {currentView === 'men' && (
                 <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                  {['All', 'T-Shirt', 'Shirt', 'Polo', 'Pants', 'Hoodie'].map((sub) => (
+                  {['All', 'T-Shirt', 'Shirt', 'Polo', 'Pants', 'Hoodie', 'Watch'].map((sub) => (
                     <button
                       key={sub}
                       onClick={() => setSelectedSubCategory(sub)}
@@ -356,7 +383,7 @@ export default function App() {
                           : 'bg-stone-900 text-stone-300 border border-stone-800 hover:border-amber-500/40'
                       }`}
                     >
-                      {sub === 'All' ? t.allCategories : sub}
+                      {getSubCategoryLabel(sub)}
                     </button>
                   ))}
                 </div>
@@ -364,7 +391,7 @@ export default function App() {
 
               {currentView === 'women' && (
                 <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                  {['All', 'Traditional', 'Dress', 'Shirt', 'Pants', 'Hoodie'].map((sub) => (
+                  {['All', 'Traditional', 'Dress', 'Shirt', 'Pants', 'Hoodie', 'Watch'].map((sub) => (
                     <button
                       key={sub}
                       onClick={() => setSelectedSubCategory(sub)}
@@ -374,7 +401,7 @@ export default function App() {
                           : 'bg-stone-900 text-stone-300 border border-stone-800 hover:border-amber-500/40'
                       }`}
                     >
-                      {sub === 'All' ? t.allCategories : sub}
+                      {getSubCategoryLabel(sub)}
                     </button>
                   ))}
                 </div>
@@ -577,7 +604,7 @@ export default function App() {
 
       {/* Floating Instant WhatsApp Button */}
       <a
-        href={`https://wa.me/${siteSettings.adminWhatsapp.replace(/[^0-9]/g, '')}?text=${encodeURIComponent('Hello Shopping Solution, I need assistance.')}`}
+        href={`https://wa.me/${formatWhatsappNumber(siteSettings.adminWhatsapp)}?text=${encodeURIComponent('Hello Shopping Solution, I need assistance.')}`}
         target="_blank"
         rel="noopener noreferrer"
         className="fixed bottom-6 right-6 z-40 w-14 h-14 bg-emerald-600 hover:bg-emerald-500 text-white rounded-full flex items-center justify-center shadow-2xl shadow-emerald-600/50 hover:scale-110 transition-all cursor-pointer group"
@@ -622,12 +649,24 @@ export default function App() {
         siteSettings={siteSettings}
         language={language}
         onClose={() => setConfirmedOrder(null)}
+        onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
+      />
+
+      {/* Track Order Live Status Modal */}
+      <TrackOrderModal
+        isOpen={isTrackOrderOpen}
+        onClose={() => setIsTrackOrderOpen(false)}
+        orders={orders}
+        language={language}
+        siteSettings={siteSettings}
+        onRefreshOrders={handleRefreshOrders}
       />
 
       {/* Admin Login Access Modal */}
       <AdminLoginModal
         isOpen={isAdminLoginOpen}
         language={language}
+        siteSettings={siteSettings}
         onClose={() => setIsAdminLoginOpen(false)}
         onLoginSuccess={handleAdminLoginSuccess}
       />
@@ -636,6 +675,7 @@ export default function App() {
       <Footer
         language={language}
         siteSettings={siteSettings}
+        onOpenTrackOrder={() => setIsTrackOrderOpen(true)}
         onNavigate={(view) => {
           if (view === 'admin' && !isAdmin) {
             setIsAdminLoginOpen(true);
