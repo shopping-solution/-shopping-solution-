@@ -51,22 +51,22 @@ export function playNotificationSound() {
 }
 
 // Request permission and register token
-export async function requestAndRegisterNotificationPermission(vapidKey?: string) {
+export async function requestAndRegisterNotificationPermission(vapidKey?: string): Promise<{ token: string | null, error?: string }> {
   if (!('Notification' in window)) {
     console.warn('[NOTIFICATION] This browser does not support notifications.');
-    return null;
+    return { token: null, error: 'This browser does not support notifications.' };
   }
 
   try {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
       console.log('[NOTIFICATION] Permission was denied.');
-      return null;
+      return { token: null, error: 'Permission was denied by the user.' };
     }
 
     if (!messaging) {
       console.warn('[FCM] Messaging service is unavailable.');
-      return null;
+      return { token: null, error: 'Messaging service is unavailable in this browser context.' };
     }
 
     // Default public VAPID key from Firebase console.
@@ -89,30 +89,39 @@ export async function requestAndRegisterNotificationPermission(vapidKey?: string
       console.log('[FCM] Obtained token successfully:', token.substring(0, 15) + '...');
       
       // Register token to our backend PostgreSQL
-      const response = await fetch('/api/push-tokens', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          token,
-          deviceType: /Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mobile' : 'desktop'
-        })
-      });
+      try {
+        const response = await fetch('/api/push-tokens', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            token,
+            deviceType: /Android|iPhone|iPad/i.test(navigator.userAgent) ? 'mobile' : 'desktop'
+          })
+        });
 
-      if (response.ok) {
-        console.log('[FCM] Push token registered to database successfully.');
-        return token;
-      } else {
-        console.error('[FCM] Failed to send push token to server.');
+        if (response.ok) {
+          console.log('[FCM] Push token registered to database successfully.');
+          return { token };
+        } else {
+          console.error('[FCM] Failed to send push token to server.', response.statusText);
+          // If we are on Vercel and the backend is missing, it might still have a token
+          // We can still return it, but maybe warn
+          return { token, error: 'Generated token but failed to register to backend server.' };
+        }
+      } catch (fetchErr) {
+        console.error('Fetch error:', fetchErr);
+        return { token, error: 'Generated token but backend server is unreachable.' };
       }
     } else {
       console.warn('[FCM] No registration token returned.');
+      return { token: null, error: 'Firebase returned an empty token.' };
     }
-  } catch (err) {
+  } catch (err: any) {
     console.error('[FCM] Error occurred during notification registration:', err);
+    return { token: null, error: err.message || 'Unknown error occurred during getToken' };
   }
-  return null;
 }
 
 // Listen for foreground notification pushes when the page is active

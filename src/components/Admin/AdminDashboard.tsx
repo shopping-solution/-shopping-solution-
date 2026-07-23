@@ -1280,13 +1280,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <button
                     onClick={async () => {
                       setFcmRegistering(true);
-                      const token = await requestAndRegisterNotificationPermission(vapidKeyInput || undefined);
+                      const result = await requestAndRegisterNotificationPermission(vapidKeyInput || undefined);
                       setFcmRegistering(false);
-                      if (token) {
-                        setFcmToken(token);
-                        alert('Device registered successfully! FCM Token is active.');
+                      if (result && result.token) {
+                        setFcmToken(result.token);
+                        if (result.error) {
+                          alert(`Device registered, but: ${result.error}`);
+                        } else {
+                          alert('Device registered successfully! FCM Token is active.');
+                        }
                       } else {
-                        alert('Permission was denied, or your browser rejected registration. Check console logs.');
+                        alert(`Registration failed: ${result?.error || 'Unknown error'}`);
                       }
                     }}
                     disabled={fcmRegistering}

@@ -98,26 +98,17 @@ export default function App() {
 
   // Floating support chat menu state
   const [isFloatingMenuOpen, setIsFloatingMenuOpen] = useState(false);
-  const [copiedNotification, setCopiedNotification] = useState(false);
 
   const handleSocialChatClick = (platform: 'whatsapp' | 'facebook' | 'instagram') => {
-    const welcomeMsg = `আসসালামু আলাইকুম, আপনি যে প্রোডাক্টটি সম্পর্কে জানতে চান তার লিংক বা একটি ছবি দিন।
+    // This is the message the *consumer* will send to the admin to start the chat.
+    const initialConsumerMsg = `আসসালামু আলাইকুম, আমি একটি প্রোডাক্ট সম্পর্কে জানতে চাই।
 
-Assalamu Alaikum, please send the link or a picture of the product you want to know about.`;
-
-    // Copy to clipboard
-    try {
-      navigator.clipboard.writeText(welcomeMsg);
-      setCopiedNotification(true);
-      setTimeout(() => setCopiedNotification(false), 3500);
-    } catch (err) {
-      console.error('Failed to copy welcome message to clipboard:', err);
-    }
+Assalamu Alaikum, I want to know about a product.`;
 
     // Direct url redirection
     let targetUrl = '';
     if (platform === 'whatsapp') {
-      targetUrl = `https://wa.me/${formatWhatsappNumber(siteSettings.adminWhatsapp)}?text=${encodeURIComponent(welcomeMsg)}`;
+      targetUrl = `https://wa.me/${formatWhatsappNumber(siteSettings.adminWhatsapp)}?text=${encodeURIComponent(initialConsumerMsg)}`;
     } else if (platform === 'facebook') {
       const fbUsername = getFacebookUsername(siteSettings.facebookUrl);
       targetUrl = `https://m.me/${fbUsername}`;
@@ -853,25 +844,6 @@ Assalamu Alaikum, please send the link or a picture of the product you want to k
           </button>
         </div>
       </div>
-
-      {/* Copy-paste Helpful Action Toast */}
-      {copiedNotification && (
-        <div className="fixed bottom-24 right-6 z-50 bg-stone-900 border border-emerald-500/40 text-stone-100 rounded-2xl p-4 shadow-2xl flex items-center gap-3 animate-bounce max-w-xs sm:max-w-sm">
-          <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-            <Check className="w-5 h-5" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-stone-100">
-              {language === 'bn' ? 'মেসেজটি কপি করা হয়েছে!' : 'Message Copied!'}
-            </p>
-            <p className="text-[10px] text-stone-400 mt-0.5 leading-tight">
-              {language === 'bn' 
-                ? 'ইনবক্সে গিয়ে মেসেজটি পেস্ট করে সেন্ড করুন।' 
-                : 'Paste the message in the chat box to send instantly.'}
-            </p>
-          </div>
-        </div>
-      )}
 
       {/* Product Details Modal */}
       <ProductDetailsModal
