@@ -50,8 +50,8 @@ export const Navbar: React.FC<NavbarProps> = ({
         <span className="inline-block w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
         <span>
           {language === 'en'
-            ? '✨ Free Home Delivery on orders over ৳3,000 | Cash on Delivery Available'
-            : '✨ ৳৩,০০০ টাকার বেশি অর্ডারে ফ্রি ডেলিভারি | ক্যাশ অন ডেলিভারি সুবিধা'}
+            ? '✨ Free Home Delivery on orders over ৳3,999 | Cash on Delivery Available'
+            : '✨ ৳৩,৯৯৯ টাকার বেশি অর্ডারে ফ্রি ডেলিভারি | ক্যাশ অন ডেলিভারি সুবিধা'}
         </span>
       </div>
 
@@ -233,33 +233,56 @@ export const Navbar: React.FC<NavbarProps> = ({
         </div>
       </div>
 
-      {/* Mobile Menu Drawer */}
-      {mobileMenuOpen && (
-        <div className="md:hidden bg-stone-950 border-b border-amber-500/20 px-4 pt-3 pb-6 space-y-3 animate-fadeIn">
+      {/* Mobile Persistent Horizontal Sub-Navbar Row */}
+      <div className="md:hidden border-t border-stone-900 bg-stone-950/95 py-2.5 px-3 overflow-x-auto scrollbar-none scroll-smooth">
+        <div className="flex items-center justify-between gap-1.5 min-w-[340px]">
           <button
             onClick={() => handleNavClick('home')}
-            className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium ${
-              currentView === 'home' ? 'bg-amber-500/20 text-amber-400' : 'text-stone-300'
+            className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold text-center transition-all whitespace-nowrap ${
+              currentView === 'home'
+                ? 'bg-amber-500 text-stone-950 shadow-md font-extrabold'
+                : 'text-stone-300 hover:text-amber-400 bg-stone-900/40 border border-stone-800'
             }`}
           >
             {t.navHome}
           </button>
+
           <button
             onClick={() => handleNavClick('men')}
-            className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium ${
-              currentView === 'men' ? 'bg-amber-500/20 text-amber-400' : 'text-stone-300'
+            className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold text-center transition-all whitespace-nowrap ${
+              currentView === 'men'
+                ? 'bg-amber-500 text-stone-950 shadow-md font-extrabold'
+                : 'text-stone-300 hover:text-amber-400 bg-stone-900/40 border border-stone-800'
             }`}
           >
             {t.navMen}
           </button>
+
           <button
             onClick={() => handleNavClick('women')}
-            className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium ${
-              currentView === 'women' ? 'bg-amber-500/20 text-amber-400' : 'text-stone-300'
+            className={`flex-1 py-1.5 px-2 rounded-xl text-xs font-bold text-center transition-all whitespace-nowrap ${
+              currentView === 'women'
+                ? 'bg-amber-500 text-stone-950 shadow-md font-extrabold'
+                : 'text-stone-300 hover:text-amber-400 bg-stone-900/40 border border-stone-800'
             }`}
           >
             {t.navWomen}
           </button>
+
+          <button
+            onClick={onOpenTrackOrder}
+            className="flex-1 py-1.5 px-2 rounded-xl text-xs font-extrabold text-center transition-all whitespace-nowrap bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-center gap-1 active:bg-amber-500 active:text-stone-950"
+          >
+            <PackageSearch className="w-3.5 h-3.5 text-amber-400" />
+            <span>{language === 'en' ? 'Track' : 'ট্র্যাক'}</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+          </button>
+        </div>
+      </div>
+
+      {/* Mobile Menu Drawer */}
+      {mobileMenuOpen && (
+        <div className="md:hidden bg-stone-950 border-b border-amber-500/20 px-4 pt-3 pb-6 space-y-3 animate-fadeIn">
           <button
             onClick={() => handleNavClick('contact')}
             className={`w-full text-left px-4 py-2.5 rounded-lg text-sm font-medium ${
@@ -267,20 +290,6 @@ export const Navbar: React.FC<NavbarProps> = ({
             }`}
           >
             {t.navContact}
-          </button>
-
-          <button
-            onClick={() => {
-              onOpenTrackOrder();
-              setMobileMenuOpen(false);
-            }}
-            className="w-full text-left px-4 py-2.5 rounded-lg text-sm font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center justify-between"
-          >
-            <div className="flex items-center gap-2">
-              <PackageSearch className="w-4 h-4 text-amber-400" />
-              <span>{language === 'en' ? 'Track Order & Status' : 'অর্ডার ট্র্যাক ও স্টেটাস'}</span>
-            </div>
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           </button>
 
           <div className="pt-2 border-t border-stone-800 flex items-center justify-between">
@@ -291,6 +300,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                 } else {
                   onOpenAdminLogin();
                 }
+                setMobileMenuOpen(false);
               }}
               className="flex items-center gap-2 px-4 py-2 text-xs font-bold rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/40"
             >

@@ -60,3 +60,20 @@ export const siteSettings = pgTable('site_settings', {
   deliveryFeeOutsideDhaka: integer('delivery_fee_outside_dhaka').notNull(),
   defaultCourier: text('default_courier'),
 });
+
+export const pushTokens = pgTable('push_tokens', {
+  id: serial('id').primaryKey(),
+  token: text('token').notNull().unique(),
+  deviceType: text('device_type').notNull().default('web'),
+  createdAt: timestamp('created_at').defaultNow(),
+});
+
+export const adminNotifications = pgTable('admin_notifications', {
+  id: serial('id').primaryKey(),
+  orderId: text('order_id').notNull(),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  createdAt: timestamp('created_at').defaultNow(),
+  read: boolean('read').notNull().default(false),
+});
+

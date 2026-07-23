@@ -1,11 +1,13 @@
 import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import { db } from './src/db/index.ts';
-import { products, orders, siteSettings, users } from './src/db/schema.ts';
+import { products, orders, siteSettings, users, pushTokens, adminNotifications } from './src/db/schema.ts';
 import { INITIAL_PRODUCTS, INITIAL_SITE_SETTINGS } from './src/data/initialProducts.ts';
 import { createCourierConsignment, getLiveCourierStatus } from './server/couriers';
+import { triggerOrderNotification, registerSseClient, unregisterSseClient, sendPushNotification } from './server/notifications.ts';
+
 
 async function startServer() {
   const app = express();
@@ -165,6 +167,13 @@ async function startServer() {
         .returning();
 
       console.log(`[REALTIME ORDER ALERT] Order #${orderData.id} placed by ${orderData.customer?.fullName} (${orderData.customer?.mobileNumber}) Total: ৳${orderData.totalAmount}. Admin Email & WhatsApp notifications dispatched!`);
+
+      // Trigger the real-time notification engine (SSE + FCM Push)
+      try {
+        await triggerOrderNotification(result[0]);
+      } catch (err) {
+        console.error('[NOTIFY TRIPPED] Non-blocking push notification fail:', err);
+      }
 
       res.json(result[0]);
     } catch (error: any) {
@@ -327,6 +336,109 @@ async function startServer() {
     } catch (error: any) {
       console.error('Failed to update settings in Cloud SQL:', error);
       res.status(500).json({ error: 'Failed to update settings' });
+    }
+  });
+
+  // --- REAL-TIME NOTIFICATION ENDPOINTS ---
+
+  // 1. Server-Sent Events (SSE) Stream for open admin dashboard instances
+  app.get('/api/notifications/stream', (req, res) => {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Content-Encoding': 'none',
+    });
+
+    res.write('retry: 10000\n');
+    res.write('data: {"status":"connected"}\n\n');
+
+    registerSseClient(res);
+
+    req.on('close', () => {
+      unregisterSseClient(res);
+    });
+  });
+
+  // 2. Retrieve notifications history from PostgreSQL
+  app.get('/api/notifications', async (req, res) => {
+    try {
+      const history = await db
+        .select()
+        .from(adminNotifications)
+        .orderBy(desc(adminNotifications.createdAt));
+      res.json(history);
+    } catch (error: any) {
+      console.error('Failed to fetch notification history:', error);
+      res.status(500).json({ error: 'Failed to fetch notification history' });
+    }
+  });
+
+  // 3. Mark single notification as read in PostgreSQL
+  app.put('/api/notifications/:id/read', async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updated = await db
+        .update(adminNotifications)
+        .set({ read: true })
+        .where(eq(adminNotifications.id, Number(id)))
+        .returning();
+      res.json(updated[0] || { success: true });
+    } catch (error: any) {
+      console.error('Failed to mark notification as read:', error);
+      res.status(500).json({ error: 'Failed to update notification status' });
+    }
+  });
+
+  // 4. Mark all notification records as read
+  app.put('/api/notifications/read-all', async (req, res) => {
+    try {
+      await db
+        .update(adminNotifications)
+        .set({ read: true });
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Failed to mark all notifications as read:', error);
+      res.status(500).json({ error: 'Failed to update notifications' });
+    }
+  });
+
+  // 5. Save/Register FCM device push registration token from Client Browser or Android
+  app.post('/api/push-tokens', async (req, res) => {
+    try {
+      const { token, deviceType } = req.body;
+      if (!token) {
+        return res.status(400).json({ error: 'Registration token is required' });
+      }
+
+      await db
+        .insert(pushTokens)
+        .values({
+          token,
+          deviceType: deviceType || 'web',
+        })
+        .onConflictDoNothing();
+
+      console.log(`[FCM DEVICE REGISTERED] Token: ${token.substring(0, 15)}... | OS: ${deviceType}`);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Failed to register device FCM token in PostgreSQL:', error);
+      res.status(500).json({ error: 'Failed to register push token' });
+    }
+  });
+
+  // 6. Manual manual test notification triggers
+  app.post('/api/notifications/test', async (req, res) => {
+    try {
+      const { title, body } = req.body;
+      await sendPushNotification(
+        title || '🔔 Integrated FCM Alert test',
+        body || 'Your real-time order notification suite is now fully configured and live.'
+      );
+      res.json({ success: true, message: 'Test push notification dispatched.' });
+    } catch (error: any) {
+      console.error('Failed to run notification system test:', error);
+      res.status(500).json({ error: 'Notification system test failed' });
     }
   });
 

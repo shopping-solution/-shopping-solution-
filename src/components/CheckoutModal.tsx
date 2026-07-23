@@ -53,16 +53,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const safeUpazilaIndex = selectedUpazilaIndex < upazilasList.length ? selectedUpazilaIndex : 0;
   const currentUpazilaObj = upazilasList[safeUpazilaIndex];
 
-  // Delivery fee calculation
-  const isInsideDhaka = currentDivisionObj.en.toLowerCase() === 'dhaka' && currentDistrictObj.en.toLowerCase() === 'dhaka';
-  const deliveryFee = isInsideDhaka
-    ? siteSettings.deliveryFeeInsideDhaka
-    : siteSettings.deliveryFeeOutsideDhaka;
-
   const subtotal = cart.reduce(
     (sum, item) => sum + item.product.price * item.quantity,
     0
   );
+
+  const isFreeDelivery = subtotal >= 3999;
+
+  // Delivery fee calculation
+  const isInsideDhaka = currentDivisionObj.en.toLowerCase() === 'dhaka' && currentDistrictObj.en.toLowerCase() === 'dhaka';
+  const baseDeliveryFee = isInsideDhaka
+    ? siteSettings.deliveryFeeInsideDhaka
+    : siteSettings.deliveryFeeOutsideDhaka;
+
+  const deliveryFee = isFreeDelivery ? 0 : baseDeliveryFee;
   const totalAmount = subtotal + deliveryFee;
 
   // Reset district/upazila indexes on division change
@@ -471,13 +475,30 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 <Truck className="w-3.5 h-3.5 text-amber-400" />
                 <span>{t.deliveryFee} ({isInsideDhaka ? 'Inside Dhaka' : 'Outside Dhaka'}):</span>
               </span>
-              <span className="font-serif text-stone-200">৳ {deliveryFee}</span>
+              <span className="font-serif text-stone-200">
+                {isFreeDelivery ? (
+                  <span className="text-emerald-400 font-bold">৳ 0 ({language === 'bn' ? 'ফ্রি' : 'Free'})</span>
+                ) : (
+                  `৳ ${deliveryFee}`
+                )}
+              </span>
             </div>
             <div className="flex justify-between text-amber-400 font-bold text-sm pt-2 border-t border-stone-800">
               <span>{t.totalAmount}:</span>
               <span className="font-serif font-extrabold text-base">৳ {totalAmount.toLocaleString()}</span>
             </div>
           </div>
+
+          {isFreeDelivery && (
+            <div className="p-3 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-emerald-300 text-xs flex items-center gap-2">
+              <span className="text-base">🎉</span>
+              <p className="font-medium">
+                {language === 'bn'
+                  ? 'আপনি ৩,৯৯৯ টাকার বেশি শপিং করায় ডেলিভারি চার্জ মাফ করা হয়েছে!'
+                  : 'You ordered over ৳3,999! Delivery charge has been waived!'}
+              </p>
+            </div>
+          )}
 
           {/* Submit Button */}
           <button

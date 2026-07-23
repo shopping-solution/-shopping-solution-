@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { Phone, MessageSquare, Mail, MapPin, Clock, Send, CheckCircle2 } from 'lucide-react';
+import { Phone, MessageSquare, Mail, MapPin, Clock } from 'lucide-react';
 import { SiteSettings, Language } from '../types';
 import { translations } from '../data/translations';
-import { formatWhatsappNumber, getGmailComposeUrl } from '../utils/formatters';
+import { formatWhatsappNumber } from '../utils/formatters';
 
 interface ContactSectionProps {
   siteSettings: SiteSettings;
@@ -18,10 +18,6 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
   const t = translations[language];
 
   const [showCallPopup, setShowCallPopup] = useState(false);
-  const [formSent, setFormSent] = useState(false);
-  const [inquiryText, setInquiryText] = useState('');
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
 
   const cleanPhone = siteSettings.adminPhone.replace(/[^0-9+]/g, '');
   const cleanWhatsapp = formatWhatsappNumber(siteSettings.adminWhatsapp);
@@ -38,15 +34,6 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
   const handleDeclineCall = () => {
     setShowCallPopup(false);
     onReturnHome();
-  };
-
-  const handleFormSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    setFormSent(true);
-    setTimeout(() => setFormSent(false), 4000);
-    setName('');
-    setPhone('');
-    setInquiryText('');
   };
 
   return (
@@ -113,11 +100,11 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
 
         </div>
 
-        {/* Contact Info & Inquiry Form */}
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 bg-stone-900 border border-stone-800 p-6 sm:p-8 rounded-2xl">
+        {/* Contact Info */}
+        <div className="bg-stone-900 border border-stone-800 p-6 sm:p-8 rounded-2xl max-w-2xl mx-auto">
           
-          <div className="md:col-span-5 space-y-6 border-b md:border-b-0 md:border-r border-stone-800 pb-6 md:pb-0 md:pr-6">
-            <h3 className="font-serif text-lg font-bold text-amber-400">Head Office & Showroom</h3>
+          <div className="space-y-6">
+            <h3 className="font-serif text-lg font-bold text-amber-400 text-center sm:text-left">Head Office & Showroom</h3>
             
             <div className="space-y-4 text-xs text-stone-300">
               <div className="flex items-start gap-3">
@@ -150,7 +137,7 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
               </div>
 
               {/* Official Social Media Pages */}
-              <div className="pt-2 space-y-2 border-t border-stone-800/80">
+              <div className="pt-4 space-y-2 border-t border-stone-800/80">
                 <strong className="block text-stone-100 font-serif">Official Social Media:</strong>
                 <div className="flex flex-wrap gap-2 pt-1">
                   <a
@@ -180,57 +167,6 @@ export const ContactSection: React.FC<ContactSectionProps> = ({
               </div>
             </div>
           </div>
-
-          {/* Quick Message Form */}
-          <div className="md:col-span-7 space-y-4">
-            <h3 className="font-serif text-lg font-bold text-stone-100">Send Direct Message</h3>
-            
-            {formSent && (
-              <div className="p-3 bg-emerald-950 border border-emerald-500 text-emerald-300 text-xs rounded-lg flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>Thank you! Your inquiry has been sent to Admin.</span>
-              </div>
-            )}
-
-            <form onSubmit={handleFormSubmit} className="space-y-3">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input
-                  type="text"
-                  required
-                  placeholder="Your Name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
-                />
-                <input
-                  type="tel"
-                  required
-                  placeholder="Your Mobile Number"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
-                />
-              </div>
-
-              <textarea
-                rows={3}
-                required
-                placeholder="Write your question or order detail here..."
-                value={inquiryText}
-                onChange={(e) => setInquiryText(e.target.value)}
-                className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
-              />
-
-              <button
-                type="submit"
-                className="py-2.5 px-6 rounded-lg bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs transition-all flex items-center gap-2 cursor-pointer"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Submit Inquiry</span>
-              </button>
-            </form>
-          </div>
-
         </div>
 
       </div>

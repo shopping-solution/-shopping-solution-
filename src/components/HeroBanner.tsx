@@ -129,8 +129,8 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ language, onNavigate }) 
             <span>{language === 'en' ? 'Fast Express Delivery' : 'সমগ্র বাংলাদেশে হোম ডেলিভারি'}</span>
           </div>
           <div className="flex items-center justify-center gap-2 text-stone-300 text-xs sm:text-sm font-medium">
-            <RefreshCw className="w-4 h-4 text-amber-400" />
-            <span>{language === 'en' ? 'Easy Exchange Policy' : 'সহজ রিটার্ন ও এক্সচেঞ্জ'}</span>
+            <ShieldCheck className="w-4 h-4 text-amber-400" />
+            <span>{language === 'en' ? 'Trusted Service' : 'বিশ্বস্ত সেবা'}</span>
           </div>
           <div className="flex items-center justify-center gap-2 text-stone-300 text-xs sm:text-sm font-medium">
             <Sparkles className="w-4 h-4 text-amber-400" />

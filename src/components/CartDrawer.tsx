@@ -144,6 +144,39 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           {/* Cart Footer */}
           {cart.length > 0 && (
             <div className="p-5 border-t border-stone-800 bg-stone-950 space-y-4">
+              {/* Free Delivery Promo Message */}
+              <div className="p-3 rounded-lg text-xs font-semibold bg-stone-900 border border-stone-800">
+                {subtotal >= 3999 ? (
+                  <div className="text-emerald-400 flex items-center gap-1.5">
+                    <span>🎉</span>
+                    <span>
+                      {language === 'bn'
+                        ? 'আপনি ৩,৯৯৯ টাকার বেশি শপিং করায় ডেলিভারি চার্জ মাফ!'
+                        : 'Free delivery unlocked on shopping over ৳3,999!'}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-stone-300">
+                    {language === 'bn' ? (
+                      <span>
+                        আর <strong className="text-amber-400 font-mono">৳ {(3999 - subtotal).toLocaleString()}</strong> টাকার শপিং করলেই ডেলিভারি চার্জ সম্পূর্ণ ফ্রি!
+                      </span>
+                    ) : (
+                      <span>
+                        Add <strong className="text-amber-400 font-mono">৳ {(3999 - subtotal).toLocaleString()}</strong> more to unlock <strong className="text-emerald-400">FREE delivery</strong>!
+                      </span>
+                    )}
+                    {/* Tiny Progress Bar */}
+                    <div className="w-full bg-stone-950 rounded-full h-1.5 mt-2 overflow-hidden">
+                      <div
+                        className="bg-gradient-to-r from-amber-500 to-amber-400 h-full transition-all duration-350"
+                        style={{ width: `${Math.min(100, (subtotal / 3999) * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="space-y-1.5 text-xs">
                 <div className="flex justify-between text-stone-300">
                   <span>{t.subtotal}:</span>

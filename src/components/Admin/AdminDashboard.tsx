@@ -3,12 +3,14 @@ import {
   Package, ShoppingCart, Settings, Plus, Edit, Trash2, CheckCircle2,
   XCircle, Clock, Truck, DollarSign, Search, ShieldCheck, RefreshCw,
   Eye, EyeOff, Lock, Key, Phone, MessageSquare, Mail, AlertTriangle, X, Upload, Image as ImageIcon,
-  Share2, Copy, Check
+  Share2, Copy, Check, Bell, Volume2, VolumeX, ArrowRight
 } from 'lucide-react';
 import { Product, Order, OrderStatus, SiteSettings, Language, GenderCategory, SubCategory } from '../../types';
 import { translations } from '../../data/translations';
 import { saveProductApi, deleteProductApi, updateOrderStatusApi, saveSettingsApi, fetchOrdersApi } from '../../utils/api';
 import { formatWhatsappNumber, generateOrderReceiptText, getGmailComposeUrl } from '../../utils/formatters';
+import { playNotificationSound, requestAndRegisterNotificationPermission, onForegroundMessage } from '../../lib/firebaseNotifications';
+
 
 interface AdminDashboardProps {
   language: Language;
@@ -35,7 +37,112 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const t = translations[language];
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'settings' | 'notifications'>('overview');
+
+  // --- REAL-TIME NOTIFICATION SYSTEM STATE ---
+  const [notificationsList, setNotificationsList] = useState<any[]>([]);
+  const [fcmToken, setFcmToken] = useState<string | null>(null);
+  const [fcmRegistering, setFcmRegistering] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [activeToast, setActiveToast] = useState<any | null>(null);
+  const [vapidKeyInput, setVapidKeyInput] = useState('');
+  const [testPushLoading, setTestPushLoading] = useState(false);
+
+  // Fetch notification history on mount
+  const fetchNotificationsHistory = async () => {
+    try {
+      const response = await fetch('/api/notifications');
+      if (response.ok) {
+        const data = await response.json();
+        setNotificationsList(data);
+      }
+    } catch (err) {
+      console.error('[NOTIFICATIONS] Failed to load history:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotificationsHistory();
+  }, []);
+
+  // Listen to url query changes to auto-select order if tapped from a notification
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const orderIdParam = params.get('orderId');
+    if (orderIdParam) {
+      // Find the order
+      const targetOrder = orders.find((o) => o.id === orderIdParam);
+      if (targetOrder) {
+        setActiveTab('orders');
+        setSelectedOrder(targetOrder);
+        // Clear param from url to avoid looping
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    }
+  }, [orders]);
+
+  // Real-time EventSource listener for new orders (for Admin Dashboard)
+  useEffect(() => {
+    console.log('[SSE] Opening real-time notification stream...');
+    const eventSource = new EventSource('/api/notifications/stream');
+
+    eventSource.onopen = () => {
+      console.log('[SSE] Connection opened successfully.');
+    };
+
+    eventSource.addEventListener('new-order', async (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        console.log('[SSE] Realtime order alert received!', data);
+        
+        // 1. Play the synthesized chime if enabled
+        if (soundEnabled) {
+          playNotificationSound();
+        }
+
+        // 2. Refresh orders instantly in dashboard state
+        const refreshedOrders = await fetchOrdersApi();
+        if (refreshedOrders) {
+          onUpdateOrders(refreshedOrders);
+        }
+
+        // 3. Append to Notifications List
+        setNotificationsList((prev) => [data.notification, ...prev]);
+
+        // 4. Trigger in-app Toast Notification
+        setActiveToast({
+          id: Date.now(),
+          orderId: data.order.id,
+          customerName: data.order.customer?.fullName || 'Anonymous',
+          amount: data.order.totalAmount,
+          itemsCount: data.order.items?.length || 1,
+        });
+      } catch (err) {
+        console.error('[SSE] Error handling new-order event:', err);
+      }
+    });
+
+    eventSource.onerror = (err) => {
+      console.warn('[SSE] EventSource stream closed or failed. Browser will auto-reconnect.', err);
+    };
+
+    // Register foreground push notifications listeners as well
+    const unsubscribeFcm = onForegroundMessage((payload) => {
+      console.log('[FCM FOREGROUND] Push message payload received:', payload);
+      fetchNotificationsHistory();
+      // Also refresh orders
+      fetchOrdersApi().then((refreshed) => {
+        if (refreshed) onUpdateOrders(refreshed);
+      });
+    });
+
+    return () => {
+      console.log('[SSE] Closing notification stream.');
+      eventSource.close();
+      unsubscribeFcm();
+    };
+  }, [soundEnabled]);
+
 
   // Product modal state (Add / Edit)
   const [productModalOpen, setProductModalOpen] = useState(false);
@@ -52,7 +159,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [prodImages, setProdImages] = useState<string>('');
   const [prodImageList, setProdImageList] = useState<string[]>([]);
   const [prodColors, setProdColors] = useState<string>('Black, White, Navy');
-  const [prodSizes, setProdSizes] = useState<string[]>(['S', 'M', 'L', 'XL']);
+  const [prodSizes, setProdSizes] = useState<string>('S, M, L, XL');
   const [prodDesc, setProdDesc] = useState('');
   const [prodDescBn, setProdDescBn] = useState('');
   const [prodIsTrending, setProdIsTrending] = useState(true);
@@ -141,6 +248,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const confirmedCount = orders.filter((o) => o.status === 'Confirmed').length;
   const deliveredCount = orders.filter((o) => o.status === 'Delivered').length;
   const cancelledCount = orders.filter((o) => o.status === 'Cancelled').length;
+  const unreadNotificationsCount = notificationsList.filter((n) => !n.read).length;
 
   // Open Product Modal for Create or Edit
   const handleOpenProductModal = (prodToEdit?: Product) => {
@@ -156,7 +264,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setProdImageList([...prodToEdit.images]);
       setProdImages(prodToEdit.images.join(', '));
       setProdColors(prodToEdit.colors.join(', '));
-      setProdSizes(prodToEdit.sizes);
+      setProdSizes(prodToEdit.sizes.join(', '));
       setProdDesc(prodToEdit.description);
       setProdDescBn(prodToEdit.descriptionBn || '');
       setProdIsTrending(!!prodToEdit.isTrending);
@@ -175,7 +283,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       setProdImageList([defaultImg]);
       setProdImages(defaultImg);
       setProdColors('Black, White, Navy');
-      setProdSizes(['S', 'M', 'L', 'XL']);
+      setProdSizes('S, M, L, XL');
       setProdDesc('Premium luxury fashion tailored for maximum comfort.');
       setProdDescBn('প্রিমিয়াম কোয়ালিটি পোশাক।');
       setProdIsTrending(true);
@@ -202,6 +310,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       .map((c) => c.trim())
       .filter((c) => c.length > 0);
 
+    const sizeArray = prodSizes
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
     const discountPct = prodOldPrice > prodPrice
       ? Math.round(((prodOldPrice - prodPrice) / prodOldPrice) * 100)
       : 0;
@@ -221,7 +334,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         inStock: prodStock > 0,
         images: imageArray.length > 0 ? imageArray : [editingProduct.images[0]],
         colors: colorArray,
-        sizes: prodSizes,
+        sizes: sizeArray,
         description: prodDesc,
         descriptionBn: prodDescBn,
         isTrending: prodIsTrending,
@@ -248,7 +361,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         inStock: prodStock > 0,
         images: imageArray.length > 0 ? imageArray : ['https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&q=80&w=800'],
         colors: colorArray,
-        sizes: prodSizes,
+        sizes: sizeArray,
         description: prodDesc,
         descriptionBn: prodDescBn,
         isTrending: prodIsTrending,
@@ -453,6 +566,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           >
             <Settings className="w-4 h-4" />
             <span>{t.contactSettings}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('notifications')}
+            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 relative ${
+              activeTab === 'notifications'
+                ? 'bg-amber-500 text-stone-950 shadow-lg'
+                : 'bg-stone-900 text-stone-400 hover:text-stone-100'
+            }`}
+          >
+            <Bell className="w-4 h-4" />
+            <span>Notifications</span>
+            {unreadNotificationsCount > 0 && (
+              <span className="bg-amber-400 text-stone-950 text-[9px] px-2 py-0.5 rounded-full font-extrabold animate-pulse">
+                {unreadNotificationsCount}
+              </span>
+            )}
           </button>
         </div>
 
@@ -994,6 +1124,253 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
 
+        {/* TAB 5: REAL-TIME NOTIFICATIONS HISTORY */}
+        {activeTab === 'notifications' && (
+          <div className="space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4 bg-stone-900 border border-stone-800 p-5 rounded-2xl">
+              <div>
+                <h2 className="font-serif text-lg font-bold text-stone-100 flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-amber-400" />
+                  <span>Real-Time Notifications History</span>
+                </h2>
+                <p className="text-xs text-stone-400">
+                  Manage background push notifications, device tokens, and sound parameters.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setSoundEnabled(!soundEnabled)}
+                  className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all flex items-center gap-2 ${
+                    soundEnabled
+                      ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                      : 'bg-stone-800 border-stone-700 text-stone-500'
+                  }`}
+                  title={soundEnabled ? 'Chime sound is enabled' : 'Chime sound is muted'}
+                >
+                  {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  <span>{soundEnabled ? 'Sound Enabled' : 'Sound Muted'}</span>
+                </button>
+
+                <button
+                  onClick={async () => {
+                    if (window.confirm('Mark all notifications as read?')) {
+                      try {
+                        const res = await fetch('/api/notifications/read-all', { method: 'PUT' });
+                        if (res.ok) {
+                          setNotificationsList(notificationsList.map((n) => ({ ...n, read: true })));
+                        }
+                      } catch (err) {
+                        console.error(err);
+                      }
+                    }
+                  }}
+                  className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-200 text-xs font-semibold transition-all"
+                  disabled={unreadNotificationsCount === 0}
+                >
+                  Mark All Read
+                </button>
+              </div>
+            </div>
+
+            {/* FCM Setup and Test Section */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              
+              {/* Registration Column */}
+              <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4 md:col-span-1">
+                <h3 className="font-serif text-sm font-bold text-stone-200 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-400" />
+                  <span>FCM Device Registration</span>
+                </h3>
+                <p className="text-[11px] text-stone-400 leading-relaxed">
+                  Register this device's Web Push registration token to allow background notifications even when this tab is closed.
+                </p>
+
+                <div className="space-y-3 pt-2">
+                  <div>
+                    <label className="block text-[10px] font-bold text-stone-400 uppercase mb-1">
+                      Web Push VAPID Key (Optional):
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Enter VAPID Public Key"
+                      value={vapidKeyInput}
+                      onChange={(e) => setVapidKeyInput(e.target.value)}
+                      className="w-full bg-stone-950 border border-stone-800 rounded-lg px-2.5 py-1.5 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
+                    />
+                    <span className="text-[9px] text-stone-500 block mt-0.5">
+                      Defaults to built-in fallback Web certificate.
+                    </span>
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      setFcmRegistering(true);
+                      const token = await requestAndRegisterNotificationPermission(vapidKeyInput || undefined);
+                      setFcmRegistering(false);
+                      if (token) {
+                        setFcmToken(token);
+                        alert('Device registered successfully! FCM Token is active.');
+                      } else {
+                        alert('Permission was denied, or your browser rejected registration. Check console logs.');
+                      }
+                    }}
+                    disabled={fcmRegistering}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    {fcmRegistering ? (
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Bell className="w-4 h-4" />
+                    )}
+                    <span>{fcmToken ? 'Re-register Device' : 'Enable Push Notifications'}</span>
+                  </button>
+
+                  {fcmToken && (
+                    <div className="p-2.5 bg-stone-950 border border-stone-850 rounded-lg space-y-1">
+                      <span className="text-[9px] text-stone-500 block uppercase font-bold">Registered FCM Token:</span>
+                      <p className="font-mono text-[9px] text-amber-400 break-all select-all font-semibold">
+                        {fcmToken}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Push System Diagnostic */}
+              <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4 md:col-span-1">
+                <h3 className="font-serif text-sm font-bold text-stone-200 flex items-center gap-2">
+                  <RefreshCw className="w-4 h-4 text-emerald-400" />
+                  <span>FCM Pipeline Test</span>
+                </h3>
+                <p className="text-[11px] text-stone-400 leading-relaxed">
+                  Trigger an immediate manual FCM Multicast dispatch to all registered active browser and Android tokens stored in Postgres.
+                </p>
+
+                <div className="pt-2 space-y-3">
+                  <button
+                    onClick={async () => {
+                      setTestPushLoading(true);
+                      try {
+                        const res = await fetch('/api/notifications/test', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            title: '🔔 System Integrity Test',
+                            body: 'Your real-time notification engine is working beautifully in production mode!'
+                          })
+                        });
+                        if (res.ok) {
+                          alert('FCM Push Test Dispatched! Please check your phone/browser.');
+                        } else {
+                          alert('FCM Push Test dispatch failed. Do you have active registered tokens?');
+                        }
+                      } catch (err) {
+                        console.error(err);
+                        alert('Failed to execute test API.');
+                      } finally {
+                        setTestPushLoading(false);
+                      }
+                    }}
+                    disabled={testPushLoading}
+                    className="w-full py-2.5 rounded-xl bg-stone-800 hover:bg-stone-700 border border-stone-700 text-stone-200 font-semibold text-xs transition-all flex items-center justify-center gap-2"
+                  >
+                    {testPushLoading && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                    <span>Dispatch FCM Test Alert</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Status card */}
+              <div className="bg-stone-900 border border-stone-800 rounded-2xl p-5 space-y-4 md:col-span-1">
+                <h3 className="font-serif text-sm font-bold text-stone-200 flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-400" />
+                  <span>Offline / Sync State</span>
+                </h3>
+                <p className="text-[11px] text-stone-400 leading-relaxed">
+                  The dashboard maintains an active SSE stream connection. If your network disconnects, notifications will queue, and the database automatically synchronizes instantly upon reconnecting.
+                </p>
+                <div className="flex items-center gap-2 text-xs pt-1">
+                  <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse" />
+                  <span className="font-semibold text-stone-300">Live SSE Stream Connection Active</span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Notification History list */}
+            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-6 space-y-4">
+              <h3 className="font-serif text-base font-bold text-stone-100 flex items-center gap-2">
+                <span>Notification Registry History</span>
+                <span className="text-xs bg-stone-800 text-stone-400 px-2 py-0.5 rounded-full font-bold">
+                  {notificationsList.length} total
+                </span>
+              </h3>
+
+              {notificationsList.length === 0 ? (
+                <div className="p-8 text-center bg-stone-950 rounded-xl border border-stone-800">
+                  <Bell className="w-8 h-8 text-stone-600 mx-auto mb-2" />
+                  <p className="text-xs text-stone-400">No notifications stored yet.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {notificationsList.map((notify) => (
+                    <div
+                      key={notify.id}
+                      onClick={async () => {
+                        // Mark as read
+                        if (!notify.read) {
+                          try {
+                            await fetch(`/api/notifications/${notify.id}/read`, { method: 'PUT' });
+                            setNotificationsList(
+                              notificationsList.map((n) => (n.id === notify.id ? { ...n, read: true } : n))
+                            );
+                          } catch (err) {
+                            console.error(err);
+                          }
+                        }
+                        
+                        // Find and open order
+                        const relatedOrder = orders.find((o) => o.id === notify.orderId);
+                        if (relatedOrder) {
+                          setSelectedOrder(relatedOrder);
+                        } else {
+                          alert(`Order #${notify.orderId} was not found in the local cache. Please refresh standard orders.`);
+                        }
+                      }}
+                      className={`p-4 rounded-xl border transition-all cursor-pointer flex items-start gap-3 text-xs ${
+                        notify.read
+                          ? 'bg-stone-950/40 border-stone-800 hover:bg-stone-950 text-stone-400'
+                          : 'bg-stone-950 border-amber-500/20 hover:border-amber-500/40 text-stone-100 shadow-md'
+                      }`}
+                    >
+                      <div className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${
+                        notify.read ? 'bg-stone-700' : 'bg-amber-400 animate-ping'
+                      }`} />
+
+                      <div className="space-y-1 flex-1">
+                        <div className="flex items-center justify-between gap-4">
+                          <p className={`font-bold ${notify.read ? 'text-stone-300' : 'text-stone-100'}`}>
+                            {notify.title}
+                          </p>
+                          <span className="text-[10px] text-stone-500 whitespace-nowrap">
+                            {new Date(notify.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <p className="text-stone-300 leading-relaxed">{notify.body}</p>
+                        <div className="flex items-center gap-1 text-[10px] text-amber-400 font-bold hover:underline pt-1">
+                          <span>View Associated Order #{notify.orderId}</span>
+                          <ArrowRight className="w-3 h-3" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
       </div>
 
       {/* PRODUCT ADD / EDIT MODAL */}
@@ -1121,6 +1498,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     value={prodColors}
                     onChange={(e) => setProdColors(e.target.value)}
                     className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
+                    placeholder="e.g. Black, White, Navy"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 mb-1">
+                    {t.availableSizes} (comma separated):
+                  </label>
+                  <input
+                    type="text"
+                    value={prodSizes}
+                    onChange={(e) => setProdSizes(e.target.value)}
+                    className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
+                    placeholder="e.g. S, M, L, XL, XXL"
                   />
                 </div>
 
@@ -1380,6 +1771,48 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
           </div>
+        </div>
+      )}
+
+      {/* IN-APP REAL-TIME ORDER CHIME TOAST */}
+      {activeToast && (
+        <div className="fixed bottom-6 right-6 z-50 bg-stone-900 border-2 border-amber-500 w-full max-w-sm rounded-2xl p-5 text-stone-100 shadow-2xl space-y-3">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
+              </span>
+              <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Instantly Placed Order Alert!</span>
+            </div>
+            <button
+              onClick={() => setActiveToast(null)}
+              className="text-stone-400 hover:text-stone-100"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          <div className="text-xs space-y-1 text-stone-300">
+            <p className="font-bold text-stone-100">Customer: {activeToast.customerName}</p>
+            <p>Order ID: #{activeToast.orderId}</p>
+            <p>Total Amount: <span className="text-amber-400 font-bold">৳ {activeToast.amount}</span></p>
+            <p>Items Count: {activeToast.itemsCount} item(s)</p>
+          </div>
+
+          <button
+            onClick={() => {
+              const relatedOrder = orders.find((o) => o.id === activeToast.orderId);
+              if (relatedOrder) {
+                setSelectedOrder(relatedOrder);
+                setActiveTab('orders');
+              }
+              setActiveToast(null);
+            }}
+            className="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-xs shadow transition-all text-center"
+          >
+            Review Order Instantly
+          </button>
         </div>
       )}
 
