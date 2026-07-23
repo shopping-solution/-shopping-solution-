@@ -108,7 +108,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           }
           return [data.order, ...prevOrders];
         };
-        onUpdateOrders(updateOrdersState as any);
+        (onUpdateOrders as any)(updateOrdersState);
 
         // 3. In parallel, run background fetch to reconcile state with any server-computed fields
         fetchOrdersApi().then((refreshedOrders) => {
@@ -118,7 +118,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         });
 
         // 4. Append to Notifications List
-        setNotificationsList((prev) => [data.notification, ...prev]);
+        setNotificationsList((prev) => {
+          if (prev.some((n) => n.id === data.notification.id || n.orderId === data.notification.orderId)) {
+            return prev;
+          }
+          return [data.notification, ...prev];
+        });
 
         // 5. Trigger in-app Toast Notification
         setActiveToast({
@@ -149,10 +154,66 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       });
     });
 
+    // ─── ROBUST POLLING FALLBACK SAFETY LAYER (EVERY 12 SECONDS) ───
+    // This handles cases where SSE is disconnected or blocked on networks/browsers.
+    const fallbackPollInterval = setInterval(async () => {
+      try {
+        console.log('[POLL FALLBACK] Fetching orders to reconcile with database...');
+        const refreshedOrders = await fetchOrdersApi();
+        if (refreshedOrders && refreshedOrders.length > 0) {
+          const updateFn = (prevOrders: Order[]) => {
+            const newOrders = refreshedOrders.filter(
+              (apiOrder) => !prevOrders.some((localOrder) => localOrder.id === apiOrder.id)
+            );
+
+            if (newOrders.length > 0) {
+              console.log(`[POLL FALLBACK] Found ${newOrders.length} brand new order(s) via database polling fallback!`);
+              
+              newOrders.forEach((newOrder) => {
+                // 1. Play synthesized chime
+                if (soundEnabled) {
+                  playNotificationSound();
+                }
+
+                // 2. Dispatch a Toast Notification
+                setActiveToast({
+                  id: Date.now() + Math.random(),
+                  orderId: newOrder.id,
+                  customerName: newOrder.customer?.fullName || 'Anonymous',
+                  amount: newOrder.totalAmount,
+                  itemsCount: newOrder.items?.length || 1,
+                });
+
+                // 3. Prepend to notification history list
+                const customerName = newOrder.customer?.fullName || 'Anonymous';
+                const totalAmount = newOrder.totalAmount;
+                const newNotification = {
+                  id: Date.now() + Math.random(),
+                  orderId: newOrder.id,
+                  title: '🔔 New Order Received!',
+                  body: `${customerName} ordered products worth ৳${totalAmount} (ID: ${newOrder.id})`,
+                  read: false,
+                  createdAt: new Date().toISOString(),
+                };
+                setNotificationsList((prev) => [newNotification, ...prev]);
+              });
+
+              return [...newOrders, ...prevOrders];
+            }
+            return prevOrders;
+          };
+          (onUpdateOrders as any)(updateFn);
+        }
+      } catch (err) {
+        console.error('[POLL FALLBACK] Failed to run polling fallback check:', err);
+      }
+    }, 12000);
+
     return () => {
-      console.log('[SSE] Closing notification stream.');
+      console.log('[SSE] Closing notification stream & clearing fallback timer.');
       eventSource.close();
       unsubscribeFcm();
+      clearInterval(fallbackPollInterval);
     };
   }, [soundEnabled, onUpdateOrders]);
 

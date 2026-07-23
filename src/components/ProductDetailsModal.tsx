@@ -43,6 +43,11 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
   const [reviewError, setReviewError] = useState<string | null>(null);
   const [reviewSuccess, setReviewSuccess] = useState<boolean>(false);
 
+  // Custom modals/lightboxes for elegant, popup-free UX
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [reviewToDelete, setReviewToDelete] = useState<number | null>(null);
+  const [isDeletingReview, setIsDeletingReview] = useState<boolean>(false);
+
   // Load reviews when product changes
   useEffect(() => {
     if (product?.id) {
@@ -115,16 +120,21 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
     setIsSubmittingReview(false);
   };
 
-  const handleDeleteReview = async (reviewId: number) => {
-    if (!window.confirm(language === 'bn' ? 'আপনি কি নিশ্চিতভাবে এই রিভিউটি মুছে ফেলতে চান?' : 'Are you sure you want to delete this review?')) {
-      return;
-    }
-    const success = await deleteReviewApi(reviewId);
+  const handleDeleteReviewClick = (reviewId: number) => {
+    setReviewToDelete(reviewId);
+  };
+
+  const confirmDeleteReview = async () => {
+    if (!reviewToDelete) return;
+    setIsDeletingReview(true);
+    const success = await deleteReviewApi(reviewToDelete);
     if (success) {
-      setReviewsList(prev => prev.filter(r => r.id !== reviewId));
+      setReviewsList(prev => prev.filter(r => r.id !== reviewToDelete));
+      setReviewToDelete(null);
     } else {
-      alert(language === 'bn' ? 'মুছে ফেলতে ব্যর্থ হয়েছে।' : 'Failed to delete review.');
+      setReviewError(language === 'bn' ? 'মুছে ফেলতে ব্যর্থ হয়েছে।' : 'Failed to delete review.');
     }
+    setIsDeletingReview(false);
   };
 
   const displayName = language === 'bn' && product.nameBn ? product.nameBn : product.name;
@@ -588,7 +598,7 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                         {/* Admin Delete Action */}
                         {isAdmin && (
                           <button
-                            onClick={() => rev.id && handleDeleteReview(rev.id)}
+                            onClick={() => rev.id && handleDeleteReviewClick(rev.id)}
                             className="absolute top-3 right-3 p-1.5 text-rose-500 hover:text-rose-400 hover:bg-rose-950/40 rounded-lg transition-all border border-transparent hover:border-rose-500/20 cursor-pointer"
                             title={language === 'bn' ? 'রিভিউ ডিলিট করুন' : 'Delete Review'}
                           >
@@ -631,9 +641,8 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
                               className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
                               referrerPolicy="no-referrer"
                               onClick={() => {
-                                const newTab = window.open();
-                                if (newTab) {
-                                  newTab.document.write(`<img src="${rev.reviewerImage}" style="max-width:100%; max-height:100%; margin:auto; display:block;" />`);
+                                if (rev.reviewerImage) {
+                                  setLightboxImage(rev.reviewerImage);
                                 }
                               }}
                             />
@@ -649,6 +658,77 @@ export const ProductDetailsModal: React.FC<ProductDetailsModalProps> = ({
         </div>
 
       </div>
+
+      {/* Elegant lightbox image viewer overlay (avoid iframe popup block) */}
+      {lightboxImage && (
+        <div 
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-950/95 p-4 animate-fadeIn"
+          onClick={() => setLightboxImage(null)}
+        >
+          <div className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-xl border border-stone-800 bg-stone-900 shadow-2xl">
+            <button
+              onClick={() => setLightboxImage(null)}
+              className="absolute top-4 right-4 z-10 p-2 rounded-full bg-stone-950/80 text-stone-400 hover:text-stone-100 border border-stone-800 transition-colors"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <img
+              src={lightboxImage}
+              alt="Enlarged review photo"
+              className="w-auto max-w-full max-h-[85vh] object-contain block mx-auto"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirmation Modal for review deletion (avoid iframe native confirm block) */}
+      {reviewToDelete !== null && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-950/80 p-4 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-md bg-stone-900 border border-stone-800 rounded-2xl p-6 shadow-2xl space-y-6">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-rose-950/80 border border-rose-500/30 text-rose-400 rounded-xl">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-stone-100 font-serif">
+                  {language === 'bn' ? 'রিভিউ মুছে ফেলতে চান?' : 'Delete Review?'}
+                </h3>
+                <p className="text-xs text-stone-400 leading-relaxed">
+                  {language === 'bn' 
+                    ? 'আপনি কি নিশ্চিতভাবে এই কাস্টমার রিভিউটি স্থায়ীভাবে মুছে ফেলতে চান?' 
+                    : 'Are you sure you want to permanently delete this customer review?'}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                disabled={isDeletingReview}
+                onClick={() => setReviewToDelete(null)}
+                className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold transition-all cursor-pointer"
+              >
+                {language === 'bn' ? 'বাতিল' : 'Cancel'}
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingReview}
+                onClick={confirmDeleteReview}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:bg-stone-800 disabled:text-stone-600 text-white text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                {isDeletingReview ? (
+                  <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                ) : (
+                  <Trash2 className="w-3.5 h-3.5" />
+                )}
+                <span>{language === 'bn' ? 'হ্যাঁ, মুছুন' : 'Yes, Delete'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

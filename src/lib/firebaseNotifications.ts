@@ -75,7 +75,10 @@ export async function requestAndRegisterNotificationPermission(vapidKey?: string
 
     console.log('[FCM] Retrieving web registration token...');
     
-    // Register the custom service worker explicitly to handle the build path
+    // Register the custom service worker explicitly
+    if ('serviceWorker' in navigator) {
+      await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    }
     const registration = await navigator.serviceWorker.ready;
     const token = await getToken(messaging, {
       vapidKey: activeVapidKey,
