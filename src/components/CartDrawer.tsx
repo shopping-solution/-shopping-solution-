@@ -35,7 +35,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     <div className="fixed inset-0 z-50 overflow-hidden bg-stone-950/80 backdrop-blur-sm animate-fadeIn">
       <div className="absolute inset-0" onClick={onClose} />
 
-      <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
+      <div className="fixed inset-y-0 right-0 max-w-full flex pl-0 sm:pl-10">
         <div className="w-screen max-w-md bg-stone-900 border-l border-amber-500/30 text-stone-100 flex flex-col justify-between shadow-2xl">
           
           {/* Cart Header */}

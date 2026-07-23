@@ -59,18 +59,18 @@ export const Navbar: React.FC<NavbarProps> = ({
           {/* Brand Logo */}
           <div 
             onClick={() => handleNavClick('home')}
-            className="cursor-pointer group flex items-center gap-3"
+            className="cursor-pointer group flex items-center gap-2 sm:gap-3"
           >
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-400 via-amber-600 to-amber-800 p-0.5 shadow-lg group-hover:scale-105 transition-transform">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-amber-400 via-amber-600 to-amber-800 p-0.5 shadow-lg group-hover:scale-105 transition-transform flex-shrink-0">
               <div className="w-full h-full bg-stone-950 rounded-[7px] flex items-center justify-center">
-                <span className="font-serif text-xl font-extrabold text-amber-400 tracking-wider">SS</span>
+                <span className="font-serif text-base sm:text-xl font-extrabold text-amber-400 tracking-wider">SS</span>
               </div>
             </div>
             <div>
-              <h1 className="font-serif text-xl sm:text-2xl font-bold tracking-wider text-stone-100 group-hover:text-amber-400 transition-colors">
+              <h1 className="font-serif text-sm sm:text-2xl font-bold tracking-wider text-stone-100 group-hover:text-amber-400 transition-colors leading-tight">
                 SHOPPING SOLUTION
               </h1>
-              <p className="text-[10px] tracking-widest text-amber-400/80 uppercase">
+              <p className="text-[9px] sm:text-[10px] tracking-widest text-amber-400/80 uppercase">
                 {t.brandTagline}
               </p>
             </div>

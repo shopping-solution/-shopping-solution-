@@ -106,30 +106,30 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       {/* Content Section */}
-      <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
+      <div className="p-3 sm:p-4 flex-1 flex flex-col justify-between space-y-2 sm:space-y-3">
         
         <div>
           {/* Category Tag */}
-          <span className="text-[10px] uppercase font-semibold text-amber-400/90 tracking-widest block mb-1">
+          <span className="text-[9px] sm:text-[10px] uppercase font-semibold text-amber-400/90 tracking-widest block mb-0.5 sm:mb-1">
             {product.gender.toUpperCase()} • {product.category}
           </span>
 
           {/* Product Name */}
           <h3 
             onClick={() => onOpenDetails(product)}
-            className="text-sm font-bold text-stone-100 hover:text-amber-400 transition-colors cursor-pointer line-clamp-2 leading-snug"
+            className="text-xs sm:text-sm font-bold text-stone-100 hover:text-amber-400 transition-colors cursor-pointer line-clamp-2 leading-snug min-h-[2.25rem]"
           >
             {displayName}
           </h3>
         </div>
 
         {/* Price Box */}
-        <div className="flex items-baseline gap-2 pt-1">
-          <span className="text-base font-extrabold text-amber-400 font-serif">
+        <div className="flex items-baseline gap-2 pt-0.5 sm:pt-1">
+          <span className="text-sm sm:text-base font-extrabold text-amber-400 font-serif">
             ৳ {product.price.toLocaleString()}
           </span>
           {product.oldPrice && product.oldPrice > product.price && (
-            <span className="text-xs text-stone-500 line-through">
+            <span className="text-[10px] sm:text-xs text-stone-500 line-through">
               ৳ {product.oldPrice.toLocaleString()}
             </span>
           )}
@@ -137,7 +137,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* Colors Preview */}
         {product.colors && product.colors.length > 0 && (
-          <div className="flex items-center gap-1.5 pt-1">
+          <div className="hidden sm:flex items-center gap-1.5 pt-1">
             <span className="text-[10px] text-stone-400 uppercase font-medium">{t.availableColors}:</span>
             <div className="flex items-center gap-1">
               {product.colors.slice(0, 4).map((col, idx) => (
@@ -158,12 +158,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
         {/* Sizes Preview */}
         {product.sizes && product.sizes.length > 0 && (
-          <div className="flex items-center gap-1">
-            <span className="text-[10px] text-stone-400 uppercase font-medium mr-1">{t.availableSizes}:</span>
+          <div className="flex items-center gap-1 overflow-x-auto pb-0.5">
+            <span className="text-[9px] sm:text-[10px] text-stone-400 uppercase font-medium mr-0.5 sm:mr-1 flex-shrink-0">{t.availableSizes}:</span>
             {product.sizes.map((sz, idx) => (
               <span
                 key={idx}
-                className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold bg-stone-950 text-amber-400/90 border border-amber-500/20"
+                className="w-4 h-4 sm:w-5 sm:h-5 rounded flex items-center justify-center text-[9px] sm:text-[10px] font-bold bg-stone-950 text-amber-400/90 border border-amber-500/20 flex-shrink-0"
               >
                 {sz}
               </span>
@@ -172,25 +172,25 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         )}
 
         {/* Bottom CTA Button */}
-        <div className="pt-2 flex items-center gap-2">
+        <div className="pt-1 sm:pt-2 flex items-center gap-1.5 sm:gap-2">
           <button
             onClick={() => onOpenDetails(product)}
-            className="flex-1 py-2 px-3 rounded-lg bg-stone-800 hover:bg-amber-500 text-stone-200 hover:text-stone-950 text-xs font-bold transition-all flex items-center justify-center gap-1.5 border border-amber-500/20 cursor-pointer"
+            className="flex-1 py-2 px-2 sm:px-3 rounded-lg bg-stone-800 hover:bg-amber-500 text-stone-200 hover:text-stone-950 text-[11px] sm:text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 border border-amber-500/20 cursor-pointer min-h-[36px]"
           >
             <span>{t.buyNow}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <ArrowRight className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
           </button>
 
           <button
             onClick={handleCopyLink}
             title={t.copyProductLink}
-            className={`p-2 rounded-lg border transition-all flex items-center justify-center cursor-pointer ${
+            className={`p-2 rounded-lg border transition-all flex items-center justify-center cursor-pointer min-w-[36px] min-h-[36px] ${
               copied
                 ? 'bg-emerald-500/20 border-emerald-400 text-emerald-400'
                 : 'bg-stone-800 hover:bg-stone-700 border-amber-500/20 text-stone-300 hover:text-amber-400'
             }`}
           >
-            {copied ? <Check className="w-4 h-4" /> : <Share2 className="w-4 h-4" />}
+            {copied ? <Check className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
           </button>
         </div>
 

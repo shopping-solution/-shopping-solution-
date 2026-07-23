@@ -31,6 +31,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [selectedDivisionIndex, setSelectedDivisionIndex] = useState<number>(0);
   const [selectedDistrictIndex, setSelectedDistrictIndex] = useState<number>(0);
   const [selectedUpazilaIndex, setSelectedUpazilaIndex] = useState<number>(0);
+  const [customUpazila, setCustomUpazila] = useState('');
   const [village, setVillage] = useState('');
   const [houseNumber, setHouseNumber] = useState('');
   const [optionalDetails, setOptionalDetails] = useState('');
@@ -45,8 +46,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   // Derived current division / district / upazila
   const currentDivisionObj = BANGLADESH_DIVISIONS[selectedDivisionIndex] || BANGLADESH_DIVISIONS[0];
-  const currentDistrictObj = currentDivisionObj.districts[selectedDistrictIndex] || currentDivisionObj.districts[0];
-  const currentUpazilaObj = currentDistrictObj?.upazilas[selectedUpazilaIndex] || currentDistrictObj?.upazilas[0];
+  const safeDistrictIndex = selectedDistrictIndex < currentDivisionObj.districts.length ? selectedDistrictIndex : 0;
+  const currentDistrictObj = currentDivisionObj.districts[safeDistrictIndex] || currentDivisionObj.districts[0];
+  
+  const upazilasList = currentDistrictObj?.upazilas || [];
+  const safeUpazilaIndex = selectedUpazilaIndex < upazilasList.length ? selectedUpazilaIndex : 0;
+  const currentUpazilaObj = upazilasList[safeUpazilaIndex];
 
   // Delivery fee calculation
   const isInsideDhaka = currentDivisionObj.en.toLowerCase() === 'dhaka' && currentDistrictObj.en.toLowerCase() === 'dhaka';
@@ -65,11 +70,13 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     setSelectedDivisionIndex(index);
     setSelectedDistrictIndex(0);
     setSelectedUpazilaIndex(0);
+    setCustomUpazila('');
   };
 
   const handleDistrictChange = (index: number) => {
     setSelectedDistrictIndex(index);
     setSelectedUpazilaIndex(0);
+    setCustomUpazila('');
   };
 
   const handleSubmitOrder = (e: React.FormEvent) => {
@@ -97,6 +104,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       return;
     }
 
+    // Determine Upazila value
+    let finalUpazila = '';
+    if (selectedUpazilaIndex >= upazilasList.length) {
+      finalUpazila = customUpazila.trim();
+    } else if (currentUpazilaObj) {
+      finalUpazila = language === 'bn' ? currentUpazilaObj.bn : currentUpazilaObj.en;
+    }
+
+    if (!finalUpazila) {
+      setErrorMessage(language === 'en' ? 'Please select or enter your Upazila / Thana' : 'উপজেলা বা থানা নির্বাচন অথবা প্রদান করুন');
+      return;
+    }
+
     // Transaction ID required for bKash or Nagad
     if ((paymentMethod === 'bKash' || paymentMethod === 'Nagad') && !transactionId.trim()) {
       setErrorMessage(t.trxIdRequired);
@@ -111,7 +131,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
       mobileNumber: cleanMobile,
       division: language === 'bn' ? currentDivisionObj.bn : currentDivisionObj.en,
       district: language === 'bn' ? currentDistrictObj.bn : currentDistrictObj.en,
-      upazila: currentUpazilaObj ? (language === 'bn' ? currentUpazilaObj.bn : currentUpazilaObj.en) : '',
+      upazila: finalUpazila,
       village: village.trim(),
       houseNumber: houseNumber.trim(),
       optionalDetails: optionalDetails.trim(),
@@ -255,12 +275,26 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                   onChange={(e) => setSelectedUpazilaIndex(Number(e.target.value))}
                   className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
                 >
-                  {currentDistrictObj.upazilas.map((upz, idx) => (
+                  {upazilasList.map((upz, idx) => (
                     <option key={upz.en} value={idx}>
                       {language === 'bn' ? upz.bn : upz.en}
                     </option>
                   ))}
+                  <option value={upazilasList.length}>
+                    {language === 'bn' ? 'অন্যান্য (নিজে লিখুন)' : 'Other (Type manually)'}
+                  </option>
                 </select>
+
+                {selectedUpazilaIndex >= upazilasList.length && (
+                  <input
+                    type="text"
+                    required
+                    value={customUpazila}
+                    onChange={(e) => setCustomUpazila(e.target.value)}
+                    placeholder={language === 'bn' ? 'আপনার উপজেলা / থানার নাম লিখুন' : 'Enter your Upazila / Thana'}
+                    className="mt-2 w-full bg-stone-950 border border-amber-500/40 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
+                  />
+                )}
               </div>
 
               {/* Village / Area */}
