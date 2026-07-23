@@ -1,0 +1,6 @@
+{
+  "name": "SHOPPING SOLUTION",
+  "description": "Premium E-commerce platform for luxury fashion with dual language support (English/Bangla), admin dashboard, and full order management.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
