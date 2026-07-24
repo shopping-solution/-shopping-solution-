@@ -1,7 +1,7 @@
 export const translations = {
   en: {
-    brandName: 'SHOPPING SOLUTION',
-    brandTagline: 'Luxury Fashion & Premium Apparel',
+    brandName: 'ZORUQ',
+    brandTagline: 'Style That Speaks',
     navHome: 'Home',
     navMen: 'Men',
     navWomen: 'Women',
@@ -100,7 +100,7 @@ export const translations = {
     // Confirmation
     orderConfirmedTitle: 'Order Placed Successfully!',
     orderId: 'Order ID',
-    thankYouMessage: 'Thank you for shopping with SHOPPING SOLUTION. Your order has been recorded.',
+    thankYouMessage: 'Thank you for shopping with ZORUQ. Your order has been recorded.',
     notifyAdminWhatsapp: 'Send Order Details to Admin WhatsApp',
     notifyAdminGmail: 'Simulate Email Notification to Admin',
     continueShopping: 'Continue Shopping',
@@ -184,15 +184,15 @@ export const translations = {
     close: 'Close',
     
     // Footer
-    footerAbout: 'SHOPPING SOLUTION is Bangladesh\'s premier online fashion standard. Quality fabrics, modern cuts, and luxury styling delivered to your doorstep.',
+    footerAbout: 'ZORUQ is Bangladesh\'s premier online fashion standard. Quality fabrics, modern cuts, and luxury styling delivered to your doorstep.',
     quickLinks: 'Quick Links',
     customerCare: 'Customer Care',
     followUs: 'Follow Us',
-    copyright: '© 2026 SHOPPING SOLUTION. All Rights Reserved.'
+    copyright: '© 2026 ZORUQ. All Rights Reserved.'
   },
   bn: {
-    brandName: 'শপিং সলিউশন',
-    brandTagline: 'প্রিমিয়াম ও লাক্সারি ফ্যাশন ব্র্যান্ড',
+    brandName: 'ZORUQ',
+    brandTagline: 'Style That Speaks',
     navHome: 'হোম',
     navMen: 'পুরুষ',
     navWomen: 'নারী',
@@ -291,7 +291,7 @@ export const translations = {
     // Confirmation
     orderConfirmedTitle: 'অর্ডারটি সফলভাবে গ্রহণ করা হয়েছে!',
     orderId: 'অর্ডার নম্বর',
-    thankYouMessage: 'শপিং সলিউশন থেকে কেনাকাটা করার জন্য আপনাকে ধন্যবাদ। আপনার অর্ডারটি সংরক্ষিত হয়েছে।',
+    thankYouMessage: 'ZORUQ থেকে কেনাকাটা করার জন্য আপনাকে ধন্যবাদ। আপনার অর্ডারটি সংরক্ষিত হয়েছে।',
     notifyAdminWhatsapp: 'এডমিন হোয়াটসঅ্যাপে অর্ডারের বিবরণ পাঠান',
     notifyAdminGmail: 'এডমিন ইমেইল নোটিফিকেশন পাঠান',
     continueShopping: 'আরও কেনাকাটা করুন',
@@ -375,10 +375,10 @@ export const translations = {
     close: 'বন্ধ করুন',
     
     // Footer
-    footerAbout: 'শপিং সলিউশন বাংলাদেশের অন্যতম প্রিমিয়াম অনলাইন ফ্যাশন হাউস। সেরা ফেব্রিক, নিখুঁত কাটিং ও আধুনিক স্টাইলের ওয়্যারড্রব সলিউশন।',
+    footerAbout: 'ZORUQ বাংলাদেশের অন্যতম প্রিমিয়াম অনলাইন ফ্যাশন হাউস। সেরা ফেব্রিক, নিখুঁত কাটিং ও আধুনিক স্টাইলের ওয়্যারড্রব সলিউশন।',
     quickLinks: 'দ্রুত লিংক',
     customerCare: 'কাস্টমার কেয়ার',
     followUs: 'সোশ্যাল মিডিয়া',
-    copyright: '© ২০২৬ শপিং সলিউশন। সর্বস্বত্ব সংরক্ষিত।'
+    copyright: '© ২০২৬ ZORUQ। সর্বস্বত্ব সংরক্ষিত।'
   }
 };

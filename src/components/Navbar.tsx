@@ -63,14 +63,24 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => handleNavClick('home')}
             className="cursor-pointer group flex items-center gap-2 sm:gap-3"
           >
-            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-br from-amber-400 via-amber-600 to-amber-800 p-0.5 shadow-lg group-hover:scale-105 transition-transform flex-shrink-0">
-              <div className="w-full h-full bg-stone-950 rounded-[7px] flex items-center justify-center">
-                <span className="font-serif text-base sm:text-xl font-extrabold text-amber-400 tracking-wider">SS</span>
-              </div>
+            <div className="w-10 h-10 sm:w-12 sm:h-12 flex-shrink-0 group-hover:scale-105 transition-transform drop-shadow-[0_0_8px_rgba(251,191,36,0.3)]">
+              <svg viewBox="0 0 100 100" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M50 15C47 15 44 17 44 20C44 22 45 23.5 47.5 24.5C48.5 24.9 49 25.5 49 26V30" stroke="url(#amber-grad)" strokeWidth="3" strokeLinecap="round" />
+                <path d="M49 30L15 47C13 48 12 50 12 53H88C88 50 87 48 85 47L51 30" stroke="url(#amber-grad)" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M22 50L50 36L78 50" stroke="url(#amber-grad)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" opacity="0.6"/>
+                <path d="M40 53V48H60L40 38V33H60" stroke="url(#amber-grad)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"/>
+                <defs>
+                  <linearGradient id="amber-grad" x1="12" y1="15" x2="88" y2="53" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#fcd34d" />
+                    <stop offset="40%" stopColor="#fbbf24" />
+                    <stop offset="100%" stopColor="#b45309" />
+                  </linearGradient>
+                </defs>
+              </svg>
             </div>
             <div>
-              <h1 className="font-serif text-sm sm:text-2xl font-bold tracking-wider text-stone-100 group-hover:text-amber-400 transition-colors leading-tight">
-                SHOPPING SOLUTION
+              <h1 className="font-serif text-lg sm:text-2xl font-bold tracking-widest text-stone-100 group-hover:text-amber-400 transition-colors leading-tight">
+                ZORUQ
               </h1>
               <p className="text-[9px] sm:text-[10px] tracking-widest text-amber-400/80 uppercase">
                 {t.brandTagline}

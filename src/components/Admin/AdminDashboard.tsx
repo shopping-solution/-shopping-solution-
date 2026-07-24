@@ -3,10 +3,11 @@ import {
   Package, ShoppingCart, Settings, Plus, Edit, Trash2, CheckCircle2,
   XCircle, Clock, Truck, DollarSign, Search, ShieldCheck, RefreshCw,
   Eye, EyeOff, Lock, Key, Phone, MessageSquare, Mail, AlertTriangle, X, Upload, Image as ImageIcon,
-  Share2, Copy, Check, Bell, Volume2, VolumeX, ArrowRight
+  Share2, Copy, Check, Bell, Volume2, VolumeX, ArrowRight, Printer, QrCode
 } from 'lucide-react';
 import { Product, Order, OrderStatus, SiteSettings, Language, GenderCategory, SubCategory } from '../../types';
 import { translations } from '../../data/translations';
+import { QRCodeModal } from '../QRCodeModal';
 import { saveProductApi, deleteProductApi, updateOrderStatusApi, saveSettingsApi, fetchOrdersApi } from '../../utils/api';
 import { formatWhatsappNumber, generateOrderReceiptText, getGmailComposeUrl } from '../../utils/formatters';
 import { playNotificationSound, requestAndRegisterNotificationPermission, onForegroundMessage } from '../../lib/firebaseNotifications';
@@ -38,6 +39,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const t = translations[language];
 
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'settings' | 'notifications'>('overview');
+  const [showQRModal, setShowQRModal] = useState(false);
 
   // --- REAL-TIME NOTIFICATION SYSTEM STATE ---
   const [notificationsList, setNotificationsList] = useState<any[]>([]);
@@ -512,6 +514,94 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     window.open(`https://wa.me/${cleanCustomerPhone}?text=${encodeURIComponent(receiptMsg)}`, '_blank');
   };
 
+  const handlePrintOrder = (order: Order) => {
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const html = `
+      <html>
+        <head>
+          <title>Order #${order.id}</title>
+          <style>
+            body { font-family: sans-serif; padding: 20px; color: #1c1917; }
+            h1 { font-size: 24px; margin-bottom: 5px; }
+            h2 { font-size: 18px; margin-top: 20px; border-bottom: 1px solid #d6d3d1; padding-bottom: 5px; }
+            p { margin: 5px 0; font-size: 14px; }
+            table { border-collapse: collapse; margin-top: 10px; width: 100%; }
+            th, td { border: 1px solid #d6d3d1; padding: 8px; text-align: left; font-size: 14px; }
+            th { background-color: #f5f5f4; }
+            .total { font-weight: bold; font-size: 16px; margin-top: 20px; text-align: right; }
+            .badge { display: inline-block; padding: 3px 8px; border-radius: 4px; background: #fbbf24; color: #000; font-weight: bold; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <h1>ZORUQ</h1>
+              <p>Style That Speaks</p>
+            </div>
+            <div style="text-align: right;">
+              <h2>Order #${order.id}</h2>
+              <p>Date: ${new Date(order.createdAt).toLocaleString()}</p>
+              <p>Status: <span class="badge">${order.status}</span></p>
+            </div>
+          </div>
+
+          <h2>Customer Details</h2>
+          <p><strong>Name:</strong> ${order.customer.fullName}</p>
+          <p><strong>Phone:</strong> ${order.customer.mobileNumber}</p>
+          <p><strong>Address:</strong> ${order.customer.houseNumber}, ${order.customer.village}, ${order.customer.upazila}, ${order.customer.district}, ${order.customer.division}</p>
+          ${order.customer.optionalDetails ? `<p><strong>Notes:</strong> ${order.customer.optionalDetails}</p>` : ''}
+
+          <h2>Order Items</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th>Details</th>
+                <th>Qty</th>
+                <th>Price</th>
+                <th>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${order.items.map(item => `
+                <tr>
+                  <td>${item.product.name}</td>
+                  <td>Size: ${item.selectedSize} | Color: ${item.selectedColor}</td>
+                  <td>${item.quantity}</td>
+                  <td>৳ ${item.product.price}</td>
+                  <td>৳ ${item.product.price * item.quantity}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="total">
+            Total Amount: ৳ ${order.totalAmount}<br/>
+            <span style="font-size: 12px; font-weight: normal;">(Paid via ${order.paymentMethod}${order.transactionId ? ' - Trx: ' + order.transactionId : ''})</span>
+          </div>
+
+          ${order.courierTrackingId ? `
+            <h2>Courier Details</h2>
+            <p><strong>Partner:</strong> ${order.courierName}</p>
+            <p><strong>Tracking ID:</strong> ${order.courierTrackingId}</p>
+            <p><strong>Status:</strong> ${order.courierStatus}</p>
+          ` : ''}
+
+          <script>
+            window.onload = function() {
+              window.print();
+            }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(html);
+    printWindow.document.close();
+  };
+
   // Save Settings
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
@@ -567,6 +657,13 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           <div className="flex items-center gap-3">
             <button
+              onClick={() => setShowQRModal(true)}
+              className="px-3.5 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 text-xs font-semibold border border-amber-500/30 transition-all flex items-center gap-1.5"
+            >
+              <QrCode className="w-3.5 h-3.5" />
+              <span>Share App QR</span>
+            </button>
+            <button
               onClick={() => {
                 if (window.confirm('Restore default products and site settings?')) {
                   onRestoreDefaults();
@@ -577,7 +674,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <RefreshCw className="w-3.5 h-3.5 text-amber-400" />
               <span>{t.restoreSeedData}</span>
             </button>
-
             <button
               onClick={onLogout}
               className="px-4 py-2 rounded-xl bg-rose-950/80 hover:bg-rose-900 border border-rose-500/40 text-rose-300 text-xs font-bold transition-all"
@@ -1830,16 +1926,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </select>
               </div>
             </div>
-
             <div className="pt-3 border-t border-stone-800 flex items-center justify-between gap-3">
-              <button
-                onClick={() => handleSendCustomerReceiptWhatsapp(selectedOrder)}
-                className="py-2 px-4 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-2 shadow-lg"
-              >
-                <MessageSquare className="w-4 h-4" />
-                <span>Send WhatsApp Receipt</span>
-              </button>
-
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleSendCustomerReceiptWhatsapp(selectedOrder)}
+                  className="py-2 px-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-lg"
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  <span className="hidden sm:inline">WhatsApp</span>
+                </button>
+                <button
+                  onClick={() => handlePrintOrder(selectedOrder)}
+                  className="py-2 px-3 bg-amber-500 hover:bg-amber-400 text-stone-950 text-xs font-bold rounded-xl transition-all flex items-center gap-1.5 shadow-lg"
+                >
+                  <Printer className="w-4 h-4" />
+                  <span className="hidden sm:inline">Print / PDF</span>
+                </button>
+              </div>
               <button
                 onClick={() => setSelectedOrder(null)}
                 className="py-2 px-5 bg-stone-800 hover:bg-stone-700 text-stone-200 text-xs font-bold rounded-xl"
@@ -1847,7 +1950,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 {t.close}
               </button>
             </div>
-
           </div>
         </div>
       )}
@@ -1870,14 +1972,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <X className="w-4 h-4" />
             </button>
           </div>
-
           <div className="text-xs space-y-1 text-stone-300">
             <p className="font-bold text-stone-100">Customer: {activeToast.customerName}</p>
             <p>Order ID: #{activeToast.orderId}</p>
             <p>Total Amount: <span className="text-amber-400 font-bold">৳ {activeToast.amount}</span></p>
             <p>Items Count: {activeToast.itemsCount} item(s)</p>
           </div>
-
           <button
             onClick={() => {
               const relatedOrder = orders.find((o) => o.id === activeToast.orderId);
@@ -1894,6 +1994,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
+      {showQRModal && (
+        <QRCodeModal
+          onClose={() => setShowQRModal(false)}
+          url={window.location.origin}
+        />
+      )}
     </div>
   );
 };

@@ -92,7 +92,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ language, onNavigate }) 
               <div className="relative rounded-2xl overflow-hidden border border-amber-500/30 bg-stone-900 shadow-2xl">
                 <img
                   src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80&w=1000"
-                  alt="Shopping Solution Fashion Collection"
+                  alt="ZORUQ Fashion Collection"
                   className="w-full h-[420px] object-cover hover:scale-105 transition-transform duration-700"
                 />
 
@@ -103,7 +103,7 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ language, onNavigate }) 
                       {language === 'en' ? 'Featured Collection' : 'বিশেষ আকর্ষণ'}
                     </span>
                     <p className="text-sm font-bold text-stone-100">
-                      {language === 'en' ? 'SHOPPING SOLUTION Executive Apparel' : 'শপিং সলিউশন এক্সিকিউটিভ অ্যাটায়ার'}
+                      {language === 'en' ? 'ZORUQ Executive Apparel' : 'ZORUQ এক্সিকিউটিভ অ্যাটায়ার'}
                     </p>
                   </div>
                   <span className="text-xs px-2.5 py-1 rounded bg-amber-500 text-stone-950 font-extrabold">
