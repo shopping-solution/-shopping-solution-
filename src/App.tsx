@@ -258,6 +258,21 @@ Assalamu Alaikum, I want to know about a product.`;
           console.error('[SSE Client] Failed to parse order-updated event:', err);
         }
       });
+
+      eventSource.addEventListener('new-order', (event: MessageEvent) => {
+        try {
+          const payload = JSON.parse(event.data);
+          const newOrder = payload.order || payload;
+          if (newOrder && newOrder.id) {
+            setOrders((prev) => {
+              if (prev.some((o) => o.id === newOrder.id)) return prev;
+              return [newOrder, ...prev];
+            });
+          }
+        } catch (err) {
+          console.error('[SSE Client] Failed to parse new-order event:', err);
+        }
+      });
     } catch (err) {
       console.error('[SSE Client] EventSource connection error:', err);
     }

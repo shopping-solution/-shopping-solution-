@@ -66,6 +66,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   useEffect(() => {
     loadVisitorStats();
+    const interval = setInterval(() => {
+      loadVisitorStats();
+    }, 10000);
+    return () => clearInterval(interval);
   }, []);
 
   // Fetch notification history on mount
@@ -101,7 +105,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     }
   }, [orders]);
 
-  // Real-time EventSource listener for new orders (for Admin Dashboard)
+  // Real-time EventSource listener for new orders and analytics (for Admin Dashboard)
   useEffect(() => {
     console.log('[SSE] Opening real-time notification stream...');
     // Add cache-busting timestamp to prevent proxy or browser-level response caching
@@ -110,6 +114,15 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     eventSource.onopen = () => {
       console.log('[SSE] Connection opened successfully.');
     };
+
+    eventSource.addEventListener('analytics-updated', (event: MessageEvent) => {
+      try {
+        const stats = JSON.parse(event.data);
+        setVisitorStats(stats);
+      } catch (err) {
+        console.error('[SSE] Error handling analytics-updated event:', err);
+      }
+    });
 
     eventSource.addEventListener('new-order', async (event: MessageEvent) => {
       try {
@@ -325,6 +338,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [settingsForm, setSettingsForm] = useState<SiteSettings>({ ...siteSettings });
   const [settingsSuccessMsg, setSettingsSuccessMsg] = useState(false);
   const [showAdminPasswordSetting, setShowAdminPasswordSetting] = useState(false);
+  const [heroMediaUploading, setHeroMediaUploading] = useState(false);
+
+  // File upload handler for Home Page Featured Image/Video from phone gallery
+  const handleHeroMediaFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 100 * 1024 * 1024) {
+      alert(language === 'bn' ? 'ফাইলটি ১০০MB এর চেয়ে বড়। অনুগ্রহ করে ছোট ফাইল আপলোড করুন।' : 'File size exceeds 100MB limit.');
+      return;
+    }
+
+    setHeroMediaUploading(true);
+    const isVideo = file.type.startsWith('video');
+    const reader = new FileReader();
+
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setSettingsForm((prev) => ({
+          ...prev,
+          heroMediaUrl: event.target?.result as string,
+          heroMediaType: isVideo ? 'video' : 'image',
+        }));
+      }
+      setHeroMediaUploading(false);
+    };
+
+    reader.onerror = () => {
+      alert(language === 'bn' ? 'ফাইল পড়তে সমস্যা হয়েছে।' : 'Failed to read media file.');
+      setHeroMediaUploading(false);
+    };
+
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   // Sync settingsForm whenever siteSettings prop changes
   useEffect(() => {
@@ -1360,37 +1408,116 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
 
                 <div className="sm:col-span-2">
-                  <h3 className="font-serif text-sm font-bold text-amber-400 border-b border-stone-800 pb-2 mb-4 mt-4 flex items-center gap-2">
-                    <ImageIcon className="w-4 h-4" />
-                    Home Page Featured Image / Video
+                  <h3 className="font-serif text-sm font-bold text-amber-400 border-b border-stone-800 pb-2 mb-4 mt-4 flex items-center justify-between">
+                    <span className="flex items-center gap-2">
+                      <ImageIcon className="w-4 h-4" />
+                      {language === 'bn' ? 'হোম পেজ ফিচার্ড ছবি / ভিডিও' : 'Home Page Featured Image / Video'}
+                    </span>
+                    <span className="text-[10px] text-stone-400 font-normal">
+                      📱 {language === 'bn' ? 'গ্যালারি বা ফাইল থেকে সরাসরি আপলোড করুন' : 'Upload photo/video from phone gallery'}
+                    </span>
                   </h3>
                 </div>
 
-                <div className="sm:col-span-2">
-                  <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    Featured Media URL:
-                  </label>
-                  <input
-                    type="url"
-                    required
-                    placeholder="https://..."
-                    value={settingsForm.heroMediaUrl || ''}
-                    onChange={(e) => setSettingsForm({ ...settingsForm, heroMediaUrl: e.target.value })}
-                    className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
-                  />
+                {/* Upload Button & Live Preview Container */}
+                <div className="sm:col-span-2 space-y-3 bg-stone-950 p-4 rounded-xl border border-stone-800/80">
+                  
+                  {/* Gallery Upload Action Bar */}
+                  <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+                    <label className="flex-1 cursor-pointer bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-stone-950 font-extrabold px-4 py-2.5 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg hover:scale-[1.01] transition-all">
+                      <Upload className="w-4 h-4" />
+                      <span>
+                        {heroMediaUploading
+                          ? (language === 'bn' ? 'ফাইল আপলোড হচ্ছে...' : 'Uploading media...')
+                          : (language === 'bn' ? '📷/🎥 ফোনের গ্যালারি থেকে ছবি/ভিডিও বাছুন' : '📷/🎥 Choose Photo or Video from Phone Gallery')}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*,video/*"
+                        onChange={handleHeroMediaFileUpload}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {settingsForm.heroMediaUrl && (
+                      <button
+                        type="button"
+                        onClick={() => setSettingsForm({ ...settingsForm, heroMediaUrl: '' })}
+                        className="px-3.5 py-2 rounded-xl bg-stone-900 border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-bold transition-colors flex items-center justify-center gap-1.5"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>{language === 'bn' ? 'মুছে ফেলুন' : 'Remove Media'}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Live Media Preview Box */}
+                  {settingsForm.heroMediaUrl ? (
+                    <div className="relative rounded-xl overflow-hidden border border-amber-500/30 bg-stone-900 max-h-64 flex items-center justify-center shadow-inner group">
+                      {settingsForm.heroMediaType === 'video' ? (
+                        <video
+                          src={settingsForm.heroMediaUrl}
+                          controls
+                          autoPlay
+                          loop
+                          muted
+                          playsInline
+                          className="w-full max-h-64 object-contain rounded-xl"
+                        />
+                      ) : (
+                        <img
+                          src={settingsForm.heroMediaUrl}
+                          alt="Hero Feature Preview"
+                          className="w-full max-h-64 object-contain rounded-xl"
+                        />
+                      )}
+                      
+                      <div className="absolute top-2 left-2 bg-stone-950/80 backdrop-blur-md px-2.5 py-1 rounded-lg border border-amber-500/40 text-[11px] font-bold text-amber-400 flex items-center gap-1.5 shadow-md">
+                        {settingsForm.heroMediaType === 'video' ? '🎥 Video File (ভিডিও)' : '📷 Image File (ছবি)'}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="border-2 border-dashed border-stone-800/80 rounded-xl p-6 text-center text-stone-500 text-xs bg-stone-900/40">
+                      {language === 'bn' 
+                        ? 'গ্যালারি থেকে কোনো ছবি বা ভিডিও নির্বাচন করা হয়নি। উপরে বোতামে চাপ দিয়ে নির্বাচন করুন।' 
+                        : 'No image or video selected yet. Click the button above to upload from phone gallery.'}
+                    </div>
+                  )}
+
+                  {/* Direct Web URL Option */}
+                  <div className="pt-2 border-t border-stone-800/60">
+                    <label className="block text-[11px] font-semibold text-stone-400 mb-1">
+                      {language === 'bn' ? 'অথবা ওয়েব ডায়রেক্ট ইমেজ/ভিডিও লিঙ্ক (Direct Link):' : 'Or Direct Image/Video URL:'}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="https://..."
+                      value={settingsForm.heroMediaUrl || ''}
+                      onChange={(e) => {
+                        const url = e.target.value;
+                        const isVid = url.endsWith('.mp4') || url.includes('video');
+                        setSettingsForm({
+                          ...settingsForm,
+                          heroMediaUrl: url,
+                          heroMediaType: isVid ? 'video' : (settingsForm.heroMediaType || 'image')
+                        });
+                      }}
+                      className="w-full bg-stone-900 border border-stone-800 rounded-lg px-3 py-1.5 text-xs text-stone-200 focus:border-amber-400 focus:outline-none font-mono"
+                    />
+                  </div>
                 </div>
 
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1">
-                    Media Type:
+                    {language === 'bn' ? 'মিডিয়ার ধরণ (Type):' : 'Media Type:'}
                   </label>
                   <select
                     value={settingsForm.heroMediaType || 'image'}
                     onChange={(e) => setSettingsForm({ ...settingsForm, heroMediaType: e.target.value as 'image' | 'video' })}
                     className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none cursor-pointer"
                   >
-                    <option value="image">Image (PNG/JPG/GIF)</option>
-                    <option value="video">Video (MP4)</option>
+                    <option value="image">Image / ছবি (PNG, JPG, WEBP, GIF)</option>
+                    <option value="video">Video / ভিডিও (MP4, WEBM, MOV)</option>
                   </select>
                 </div>
 

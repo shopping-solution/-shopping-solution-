@@ -46,6 +46,47 @@ async function startServer() {
     res.json({ status: 'ok', database: 'cloudsql' });
   });
 
+// Helper for Bangladesh (Asia/Dhaka) date calculation
+function getBDDateStr(date = new Date()): string {
+  try {
+    return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Dhaka' }).format(date);
+  } catch (e) {
+    return date.toISOString().split('T')[0];
+  }
+}
+
+async function getAnalyticsStatsHelper() {
+  const allViews = await db.select().from(pageViews);
+  const now = new Date();
+  const todayBD = getBDDateStr(now);
+
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const todayViews = allViews.filter((v) => {
+    if (v.dateStr === todayBD) return true;
+    if (v.createdAt) {
+      return getBDDateStr(new Date(v.createdAt)) === todayBD;
+    }
+    return false;
+  });
+
+  const weekViews = allViews.filter((v) => v.createdAt && new Date(v.createdAt) >= sevenDaysAgo);
+  const monthViews = allViews.filter((v) => v.createdAt && new Date(v.createdAt) >= thirtyDaysAgo);
+
+  const todayUnique = new Set(todayViews.map((v) => v.visitorId)).size;
+  const weekUnique = new Set(weekViews.map((v) => v.visitorId)).size;
+  const monthUnique = new Set(monthViews.map((v) => v.visitorId)).size;
+  const totalUnique = new Set(allViews.map((v) => v.visitorId)).size;
+
+  return {
+    today: { unique: todayUnique, views: todayViews.length },
+    week: { unique: weekUnique, views: weekViews.length },
+    month: { unique: monthUnique, views: monthViews.length },
+    total: { unique: totalUnique, views: allViews.length },
+  };
+}
+
   // Track page view / visitor entry
   app.post('/api/analytics/track', async (req, res) => {
     try {
@@ -55,13 +96,18 @@ async function startServer() {
       }
 
       const now = new Date();
-      const dateStr = now.toISOString().split('T')[0]; // "YYYY-MM-DD"
+      const dateStr = getBDDateStr(now);
 
       await db.insert(pageViews).values({
         visitorId,
         createdAt: now,
         dateStr,
       });
+
+      // Broadcast live updated stats to active Admin Dashboards
+      getAnalyticsStatsHelper().then((stats) => {
+        broadcastToClients('analytics-updated', stats);
+      }).catch(() => {});
 
       res.json({ success: true });
     } catch (error: any) {
@@ -73,32 +119,8 @@ async function startServer() {
   // Get Visitor Analytics Stats for Admin Dashboard
   app.get('/api/analytics/stats', async (req, res) => {
     try {
-      const allViews = await db.select().from(pageViews);
-
-      const now = new Date();
-      const todayStr = now.toISOString().split('T')[0];
-
-      // Time thresholds
-      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-
-      // Filter views
-      const todayViews = allViews.filter((v) => v.dateStr === todayStr);
-      const weekViews = allViews.filter((v) => new Date(v.createdAt) >= sevenDaysAgo);
-      const monthViews = allViews.filter((v) => new Date(v.createdAt) >= thirtyDaysAgo);
-
-      // Distinct Visitors
-      const todayUnique = new Set(todayViews.map((v) => v.visitorId)).size;
-      const weekUnique = new Set(weekViews.map((v) => v.visitorId)).size;
-      const monthUnique = new Set(monthViews.map((v) => v.visitorId)).size;
-      const totalUnique = new Set(allViews.map((v) => v.visitorId)).size;
-
-      res.json({
-        today: { unique: todayUnique, views: todayViews.length },
-        week: { unique: weekUnique, views: weekViews.length },
-        month: { unique: monthUnique, views: monthViews.length },
-        total: { unique: totalUnique, views: allViews.length },
-      });
+      const stats = await getAnalyticsStatsHelper();
+      res.json(stats);
     } catch (error: any) {
       console.error('Failed to calculate analytics stats:', error);
       res.status(500).json({ error: 'Failed to calculate analytics stats' });
