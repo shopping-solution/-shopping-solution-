@@ -2,7 +2,7 @@ import { Product, Order, SiteSettings, Review } from '../types';
 
 export async function fetchProductsApi(): Promise<Product[] | null> {
   try {
-    const res = await fetch('/api/products');
+    const res = await fetch(`/api/products?t=${Date.now()}`, { cache: 'no-store' });
     if (res.ok) {
       return await res.json();
     }
@@ -38,7 +38,7 @@ export async function deleteProductApi(id: string): Promise<boolean> {
 
 export async function fetchOrdersApi(): Promise<Order[] | null> {
   try {
-    const res = await fetch('/api/orders');
+    const res = await fetch(`/api/orders?t=${Date.now()}`, { cache: 'no-store' });
     if (res.ok) {
       return await res.json();
     }
@@ -90,7 +90,7 @@ export async function fetchLiveTrackingApi(id: string): Promise<Order | null> {
 
 export async function fetchSettingsApi(): Promise<SiteSettings | null> {
   try {
-    const res = await fetch('/api/settings');
+    const res = await fetch(`/api/settings?t=${Date.now()}`, { cache: 'no-store' });
     if (res.ok) {
       return await res.json();
     }

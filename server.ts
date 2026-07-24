@@ -41,6 +41,14 @@ async function startServer() {
 
   // --- API ROUTES ---
 
+  // Disable HTTP caching for all API routes to ensure real-time fresh data
+  app.use('/api', (req, res, next) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    next();
+  });
+
   // Health check
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', database: 'cloudsql' });
@@ -419,6 +427,8 @@ async function getAnalyticsStatsHelper() {
           adminPassword: cleanSettings.adminPassword || INITIAL_SITE_SETTINGS.adminPassword,
           facebookUrl: cleanSettings.facebookUrl || INITIAL_SITE_SETTINGS.facebookUrl,
           instagramUrl: cleanSettings.instagramUrl || INITIAL_SITE_SETTINGS.instagramUrl,
+          heroMediaUrl: cleanSettings.heroMediaUrl || INITIAL_SITE_SETTINGS.heroMediaUrl,
+          heroMediaType: cleanSettings.heroMediaType || INITIAL_SITE_SETTINGS.heroMediaType || 'image',
         });
       } else {
         res.json(INITIAL_SITE_SETTINGS);
@@ -449,6 +459,8 @@ async function getAnalyticsStatsHelper() {
           deliveryFeeInsideDhaka: Number(settingsData.deliveryFeeInsideDhaka),
           deliveryFeeOutsideDhaka: Number(settingsData.deliveryFeeOutsideDhaka),
           defaultCourier: settingsData.defaultCourier || 'Steadfast',
+          heroMediaUrl: settingsData.heroMediaUrl || '',
+          heroMediaType: settingsData.heroMediaType || 'image',
         })
         .onConflictDoUpdate({
           target: siteSettings.id,
@@ -465,6 +477,8 @@ async function getAnalyticsStatsHelper() {
             deliveryFeeInsideDhaka: Number(settingsData.deliveryFeeInsideDhaka),
             deliveryFeeOutsideDhaka: Number(settingsData.deliveryFeeOutsideDhaka),
             defaultCourier: settingsData.defaultCourier || 'Steadfast',
+            heroMediaUrl: settingsData.heroMediaUrl || '',
+            heroMediaType: settingsData.heroMediaType || 'image',
           },
         })
         .returning();

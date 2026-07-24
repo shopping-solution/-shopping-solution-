@@ -177,9 +177,8 @@ Assalamu Alaikum, I want to know about a product.`;
     }
   };
 
-  // Fetch initial state from Cloud SQL API
+  // Fetch and sync live state from Cloud SQL API with 4s periodic background refresh
   useEffect(() => {
-    // Track visitor hit
     trackVisitor();
 
     async function loadCloudSqlData() {
@@ -188,7 +187,7 @@ Assalamu Alaikum, I want to know about a product.`;
         fetchOrdersApi(),
         fetchSettingsApi(),
       ]);
-      if (apiProds && apiProds.length > 0) {
+      if (apiProds) {
         setProducts(apiProds);
       }
       if (apiOrders) {
@@ -198,7 +197,13 @@ Assalamu Alaikum, I want to know about a product.`;
         setSiteSettings(apiSettings);
       }
     }
+
+    // Initial load
     loadCloudSqlData();
+
+    // 4-second background poll ensuring orders, products & site settings are always 100% in sync
+    const interval = setInterval(loadCloudSqlData, 4000);
+    return () => clearInterval(interval);
   }, []);
 
   // Live SSE listener for instant real-time synchronization of products, settings, and orders across all clients
@@ -481,12 +486,21 @@ Assalamu Alaikum, I want to know about a product.`;
   };
 
   // Order Placed Success Handler
-  const handleOrderPlaced = (newOrder: Order) => {
+  const handleOrderPlaced = async (newOrder: Order) => {
     setOrders((prev) => [newOrder, ...prev]);
-    createOrderApi(newOrder);
     setConfirmedOrder(newOrder);
     setCart([]); // Clear cart
     setIsCheckoutOpen(false);
+
+    try {
+      await createOrderApi(newOrder);
+      const freshOrders = await fetchOrdersApi();
+      if (freshOrders) {
+        setOrders(freshOrders);
+      }
+    } catch (e) {
+      console.error('Error persisting new order:', e);
+    }
   };
 
   // Admin Login Handler

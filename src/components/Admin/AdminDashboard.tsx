@@ -436,7 +436,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // Save Product (Add or Edit)
-  const handleSaveProduct = (e: React.FormEvent) => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
 
     let imageArray = prodImageList.filter((url) => url.trim().length > 0);
@@ -487,7 +487,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         p.id === editingProduct.id ? updatedProduct : p
       );
       onUpdateProducts(updatedList);
-      saveProductApi(updatedProduct);
+      await saveProductApi(updatedProduct);
     } else {
       // Add new
       const newProd: Product = {
@@ -512,17 +512,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         createdAt: new Date().toISOString(),
       };
       onUpdateProducts([newProd, ...products]);
-      saveProductApi(newProd);
+      await saveProductApi(newProd);
     }
 
     setProductModalOpen(false);
   };
 
   // Delete Product
-  const handleDeleteProduct = (prodId: string) => {
+  const handleDeleteProduct = async (prodId: string) => {
     if (window.confirm(t.confirmDelete)) {
       onUpdateProducts(products.filter((p) => p.id !== prodId));
-      deleteProductApi(prodId);
+      await deleteProductApi(prodId);
     }
   };
 
@@ -669,7 +669,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   };
 
   // Save Settings
-  const handleSaveSettings = (e: React.FormEvent) => {
+  const handleSaveSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanedSettings: SiteSettings = {
       ...settingsForm,
@@ -685,7 +685,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     };
     setSettingsForm(cleanedSettings);
     onUpdateSettings(cleanedSettings);
-    saveSettingsApi(cleanedSettings);
+    await saveSettingsApi(cleanedSettings);
     setSettingsSuccessMsg(true);
     setTimeout(() => setSettingsSuccessMsg(false), 3000);
   };

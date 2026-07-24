@@ -35,7 +35,7 @@ export function trackVisitor() {
 
 export async function fetchAnalyticsStats(): Promise<VisitorStats | null> {
   try {
-    const res = await fetch('/api/analytics/stats');
+    const res = await fetch(`/api/analytics/stats?t=${Date.now()}`, { cache: 'no-store' });
     if (res.ok) {
       return await res.json();
     }

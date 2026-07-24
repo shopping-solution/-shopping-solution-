@@ -1,15 +1,15 @@
 import { Product, SiteSettings } from '../types';
 
 export const INITIAL_SITE_SETTINGS: SiteSettings = {
-  adminPhone: '+8801712345678',
-  adminWhatsapp: '+8801712345678',
-  adminEmail: 'admin@shoppingsolution.com',
-  adminAddress: 'Level 4, Shopping Solution Tower, Banani C/A, Dhaka-1213, Bangladesh',
+  adminPhone: '01603364055',
+  adminWhatsapp: '+8801603364055',
+  adminEmail: 'shahriyarhossensabbir@gmail.com',
+  adminAddress: 'Banani, Dhaka, Bangladesh',
   adminPassword: 'Admin#2026!Sec',
   facebookUrl: 'https://www.facebook.com/share/1DQAkf8T7T/',
   instagramUrl: 'https://www.instagram.com/shopping_solution_',
-  bkashNumber: '01712345678',
-  nagadNumber: '01812345678',
+  bkashNumber: '01603364055',
+  nagadNumber: '01603364055',
   deliveryFeeInsideDhaka: 70,
   deliveryFeeOutsideDhaka: 130,
   heroMediaUrl: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80&w=1000',
