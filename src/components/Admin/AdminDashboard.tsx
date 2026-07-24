@@ -39,17 +39,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 }) => {
   const t = translations[language];
 
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'settings' | 'notifications'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'settings'>('overview');
   const [showQRModal, setShowQRModal] = useState(false);
-
-  // --- REAL-TIME NOTIFICATION SYSTEM STATE ---
-  const [notificationsList, setNotificationsList] = useState<any[]>([]);
-  const [fcmToken, setFcmToken] = useState<string | null>(null);
-  const [fcmRegistering, setFcmRegistering] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(true);
-  const [activeToast, setActiveToast] = useState<any | null>(null);
-  const [vapidKeyInput, setVapidKeyInput] = useState('');
-  const [testPushLoading, setTestPushLoading] = useState(false);
 
   // --- VISITOR ANALYTICS STATE ---
   const [visitorStats, setVisitorStats] = useState<VisitorStats | null>(null);
@@ -72,183 +63,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch notification history on mount
-  const fetchNotificationsHistory = async () => {
-    try {
-      const response = await fetch('/api/notifications');
-      if (response.ok) {
-        const data = await response.json();
-        setNotificationsList(data);
-      }
-    } catch (err) {
-      console.error('[NOTIFICATIONS] Failed to load history:', err);
-    }
-  };
 
-  useEffect(() => {
-    fetchNotificationsHistory();
-  }, []);
-
-  // Listen to url query changes to auto-select order if tapped from a notification
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const orderIdParam = params.get('orderId');
-    if (orderIdParam) {
-      // Find the order
-      const targetOrder = orders.find((o) => o.id === orderIdParam);
-      if (targetOrder) {
-        setActiveTab('orders');
-        setSelectedOrder(targetOrder);
-        // Clear param from url to avoid looping
-        window.history.replaceState({}, document.title, window.location.pathname);
-      }
-    }
-  }, [orders]);
-
-  // Real-time EventSource listener for new orders and analytics (for Admin Dashboard)
-  useEffect(() => {
-    console.log('[SSE] Opening real-time notification stream...');
-    // Add cache-busting timestamp to prevent proxy or browser-level response caching
-    const eventSource = new EventSource(`/api/notifications/stream?t=${Date.now()}`);
-
-    eventSource.onopen = () => {
-      console.log('[SSE] Connection opened successfully.');
-    };
-
-    eventSource.addEventListener('analytics-updated', (event: MessageEvent) => {
-      try {
-        const stats = JSON.parse(event.data);
-        setVisitorStats(stats);
-      } catch (err) {
-        console.error('[SSE] Error handling analytics-updated event:', err);
-      }
-    });
-
-    eventSource.addEventListener('new-order', async (event: MessageEvent) => {
-      try {
-        const data = JSON.parse(event.data);
-        console.log('[SSE] Realtime order alert received!', data);
-        
-        // 1. Play the synthesized chime if enabled
-        if (soundEnabled) {
-          playNotificationSound();
-        }
-
-        // 2. Prepend the new order instantly to local state for zero-latency UI display
-        const updateOrdersState = (prevOrders: Order[]) => {
-          if (prevOrders.some((o) => o.id === data.order.id)) {
-            return prevOrders;
-          }
-          return [data.order, ...prevOrders];
-        };
-        (onUpdateOrders as any)(updateOrdersState);
-
-        // 3. In parallel, run background fetch to reconcile state with any server-computed fields
-        fetchOrdersApi().then((refreshedOrders) => {
-          if (refreshedOrders) {
-            onUpdateOrders(refreshedOrders);
-          }
-        });
-
-        // 4. Append to Notifications List
-        setNotificationsList((prev) => {
-          if (prev.some((n) => n.id === data.notification.id || n.orderId === data.notification.orderId)) {
-            return prev;
-          }
-          return [data.notification, ...prev];
-        });
-
-        // 5. Trigger in-app Toast Notification
-        setActiveToast({
-          id: Date.now(),
-          orderId: data.order.id,
-          customerName: data.order.customer?.fullName || 'Anonymous',
-          amount: data.order.totalAmount,
-          itemsCount: data.order.items?.length || 1,
-        });
-      } catch (err) {
-        console.error('[SSE] Error handling new-order event:', err);
-      }
-    });
-
-    eventSource.onerror = (err) => {
-      console.warn('[SSE] EventSource stream closed or failed. Browser will auto-reconnect.', err);
-    };
-
-    // Register foreground push notifications listeners as well
-    const unsubscribeFcm = onForegroundMessage((payload) => {
-      console.log('[FCM FOREGROUND] Push message payload received:', payload);
-      fetchNotificationsHistory();
-      // Also refresh orders
-      fetchOrdersApi().then((refreshed) => {
-        if (refreshed) {
-          onUpdateOrders(refreshed);
-        }
-      });
-    });
-
-    // ─── ROBUST POLLING FALLBACK SAFETY LAYER (EVERY 12 SECONDS) ───
-    // This handles cases where SSE is disconnected or blocked on networks/browsers.
-    const fallbackPollInterval = setInterval(async () => {
-      try {
-        console.log('[POLL FALLBACK] Fetching orders to reconcile with database...');
-        const refreshedOrders = await fetchOrdersApi();
-        if (refreshedOrders && refreshedOrders.length > 0) {
-          const updateFn = (prevOrders: Order[]) => {
-            const newOrders = refreshedOrders.filter(
-              (apiOrder) => !prevOrders.some((localOrder) => localOrder.id === apiOrder.id)
-            );
-
-            if (newOrders.length > 0) {
-              console.log(`[POLL FALLBACK] Found ${newOrders.length} brand new order(s) via database polling fallback!`);
-              
-              newOrders.forEach((newOrder) => {
-                // 1. Play synthesized chime
-                if (soundEnabled) {
-                  playNotificationSound();
-                }
-
-                // 2. Dispatch a Toast Notification
-                setActiveToast({
-                  id: Date.now() + Math.random(),
-                  orderId: newOrder.id,
-                  customerName: newOrder.customer?.fullName || 'Anonymous',
-                  amount: newOrder.totalAmount,
-                  itemsCount: newOrder.items?.length || 1,
-                });
-
-                // 3. Prepend to notification history list
-                const customerName = newOrder.customer?.fullName || 'Anonymous';
-                const totalAmount = newOrder.totalAmount;
-                const newNotification = {
-                  id: Date.now() + Math.random(),
-                  orderId: newOrder.id,
-                  title: '🔔 New Order Received!',
-                  body: `${customerName} ordered products worth ৳${totalAmount} (ID: ${newOrder.id})`,
-                  read: false,
-                  createdAt: new Date().toISOString(),
-                };
-                setNotificationsList((prev) => [newNotification, ...prev]);
-              });
-
-              return [...newOrders, ...prevOrders];
-            }
-            return prevOrders;
-          };
-          (onUpdateOrders as any)(updateFn);
-        }
-      } catch (err) {
-        console.error('[POLL FALLBACK] Failed to run polling fallback check:', err);
-      }
-    }, 12000);
-
-    return () => {
-      console.log('[SSE] Closing notification stream & clearing fallback timer.');
-      eventSource.close();
-      unsubscribeFcm();
-      clearInterval(fallbackPollInterval);
-    };
-  }, [soundEnabled, onUpdateOrders]);
 
 
   // Product modal state (Add / Edit)
@@ -390,7 +205,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const confirmedCount = orders.filter((o) => o.status === 'Confirmed').length;
   const deliveredCount = orders.filter((o) => o.status === 'Delivered').length;
   const cancelledCount = orders.filter((o) => o.status === 'Cancelled').length;
-  const unreadNotificationsCount = notificationsList.filter((n) => !n.read).length;
+
 
   // Open Product Modal for Create or Edit
   const handleOpenProductModal = (prodToEdit?: Product) => {
@@ -813,24 +628,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <Settings className="w-4 h-4" />
             <span>{t.contactSettings}</span>
           </button>
-
-          <button
-            onClick={() => setActiveTab('notifications')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-2 relative ${
-              activeTab === 'notifications'
-                ? 'bg-amber-500 text-stone-950 shadow-lg'
-                : 'bg-stone-900 text-stone-400 hover:text-stone-100'
-            }`}
-          >
-            <Bell className="w-4 h-4" />
-            <span>Notifications</span>
-            {unreadNotificationsCount > 0 && (
-              <span className="bg-amber-400 text-stone-950 text-[9px] px-2 py-0.5 rounded-full font-extrabold animate-pulse">
-                {unreadNotificationsCount}
-              </span>
-            )}
-          </button>
         </div>
+
 
         {/* TAB 1: OVERVIEW STATS */}
         {activeTab === 'overview' && (
@@ -2283,45 +2082,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
       )}
 
-      {/* IN-APP REAL-TIME ORDER CHIME TOAST */}
-      {activeToast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-stone-900 border-2 border-amber-500 w-full max-w-sm rounded-2xl p-5 text-stone-100 shadow-2xl space-y-3">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2">
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500"></span>
-              </span>
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-400">Instantly Placed Order Alert!</span>
-            </div>
-            <button
-              onClick={() => setActiveToast(null)}
-              className="text-stone-400 hover:text-stone-100"
-            >
-              <X className="w-4 h-4" />
-            </button>
-          </div>
-          <div className="text-xs space-y-1 text-stone-300">
-            <p className="font-bold text-stone-100">Customer: {activeToast.customerName}</p>
-            <p>Order ID: #{activeToast.orderId}</p>
-            <p>Total Amount: <span className="text-amber-400 font-bold">৳ {activeToast.amount}</span></p>
-            <p>Items Count: {activeToast.itemsCount} item(s)</p>
-          </div>
-          <button
-            onClick={() => {
-              const relatedOrder = orders.find((o) => o.id === activeToast.orderId);
-              if (relatedOrder) {
-                setSelectedOrder(relatedOrder);
-                setActiveTab('orders');
-              }
-              setActiveToast(null);
-            }}
-            className="w-full py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-extrabold text-xs shadow transition-all text-center"
-          >
-            Review Order Instantly
-          </button>
-        </div>
-      )}
 
       {showQRModal && (
         <QRCodeModal
