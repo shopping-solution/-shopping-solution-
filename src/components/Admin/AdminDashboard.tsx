@@ -539,6 +539,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onUpdateOrders(updated);
     
     await updateOrderStatusApi(orderId, newStatus);
+    const updatedOrders = await fetchOrdersApi();
+    if (updatedOrders) {
+      onUpdateOrders(updatedOrders);
+    }
 
     // Refresh orders from API to obtain newly generated courier details
     const refreshedOrders = await fetchOrdersApi();

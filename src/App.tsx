@@ -76,6 +76,8 @@ export default function App() {
 
   // Navigation state
   const [currentView, setCurrentView] = useState<'home' | 'men' | 'women' | 'contact' | 'admin'>('home');
+  console.log('App.tsx rendering, siteSettings:', siteSettings);
+
 
   // Search & Filters state
   const [searchQuery, setSearchQuery] = useState('');
@@ -182,19 +184,25 @@ Assalamu Alaikum, I want to know about a product.`;
     trackVisitor();
 
     async function loadCloudSqlData() {
+      console.log('App.tsx: Polling Cloud SQL data...');
+      // Independent fetches to ensure one failure doesn't block others
       const [apiProds, apiOrders, apiSettings] = await Promise.all([
-        fetchProductsApi(),
-        fetchOrdersApi(),
-        fetchSettingsApi(),
+        fetchProductsApi().catch(() => null),
+        fetchOrdersApi().catch(() => null),
+        fetchSettingsApi().catch(() => null),
       ]);
+      
       if (apiProds) {
         setProducts(apiProds);
+        saveStoredProducts(apiProds);
       }
       if (apiOrders) {
         setOrders(apiOrders);
+        saveStoredOrders(apiOrders);
       }
       if (apiSettings) {
         setSiteSettings(apiSettings);
+        saveStoredSettings(apiSettings);
       }
     }
 
@@ -344,6 +352,7 @@ Assalamu Alaikum, I want to know about a product.`;
   }, [orders]);
 
   useEffect(() => {
+    console.log('App.tsx: Saving settings to storage:', siteSettings);
     saveStoredSettings(siteSettings);
   }, [siteSettings]);
 
@@ -564,7 +573,10 @@ Assalamu Alaikum, I want to know about a product.`;
             siteSettings={siteSettings}
             onUpdateProducts={setProducts}
             onUpdateOrders={setOrders}
-            onUpdateSettings={setSiteSettings}
+            onUpdateSettings={(newSettings) => {
+              console.log('App.tsx onUpdateSettings called with:', newSettings);
+              setSiteSettings(newSettings);
+            }}
             onRestoreDefaults={handleRestoreDefaults}
             onLogout={handleAdminLogout}
           />
