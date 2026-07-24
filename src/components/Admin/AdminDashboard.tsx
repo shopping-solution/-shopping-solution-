@@ -673,21 +673,27 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     e.preventDefault();
     const cleanedSettings: SiteSettings = {
       ...settingsForm,
-      adminPhone: settingsForm.adminPhone.trim(),
-      adminWhatsapp: settingsForm.adminWhatsapp.trim(),
-      adminEmail: settingsForm.adminEmail.trim(),
+      adminPhone: (settingsForm.adminPhone || '').trim(),
+      adminWhatsapp: (settingsForm.adminWhatsapp || '').trim(),
+      adminEmail: (settingsForm.adminEmail || '').trim(),
       adminAddress: (settingsForm.adminAddress || '').trim(),
       adminPassword: (settingsForm.adminPassword || 'Admin#2026!Sec').trim(),
-      facebookUrl: (settingsForm.facebookUrl || 'https://www.facebook.com/share/1DQAkf8T7T/').trim(),
-      instagramUrl: (settingsForm.instagramUrl || 'https://www.instagram.com/shopping_solution_').trim(),
-      bkashNumber: settingsForm.bkashNumber.trim(),
-      nagadNumber: settingsForm.nagadNumber.trim(),
+      facebookUrl: (settingsForm.facebookUrl || '').trim(),
+      instagramUrl: (settingsForm.instagramUrl || '').trim(),
+      bkashNumber: (settingsForm.bkashNumber || '').trim(),
+      nagadNumber: (settingsForm.nagadNumber || '').trim(),
+      deliveryFeeInsideDhaka: Number(settingsForm.deliveryFeeInsideDhaka || 70),
+      deliveryFeeOutsideDhaka: Number(settingsForm.deliveryFeeOutsideDhaka || 130),
     };
     setSettingsForm(cleanedSettings);
     onUpdateSettings(cleanedSettings);
-    await saveSettingsApi(cleanedSettings);
-    setSettingsSuccessMsg(true);
-    setTimeout(() => setSettingsSuccessMsg(false), 3000);
+    const success = await saveSettingsApi(cleanedSettings);
+    if (success) {
+      setSettingsSuccessMsg(true);
+      setTimeout(() => setSettingsSuccessMsg(false), 3000);
+    } else {
+      alert(language === 'bn' ? 'তথ্য আপডেট করতে ব্যর্থ হয়েছে। অনুগ্রহ করে আবার চেষ্টা করুন।' : 'Failed to save settings.');
+    }
   };
 
   // Filtered Orders
@@ -1384,8 +1390,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {t.facebookUrl} (Official Page):
                   </label>
                   <input
-                    type="url"
-                    required
+                    type="text"
                     placeholder="https://www.facebook.com/share/..."
                     value={settingsForm.facebookUrl || ''}
                     onChange={(e) => setSettingsForm({ ...settingsForm, facebookUrl: e.target.value })}
@@ -1398,8 +1403,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {t.instagramUrl} (Official Profile):
                   </label>
                   <input
-                    type="url"
-                    required
+                    type="text"
                     placeholder="https://www.instagram.com/..."
                     value={settingsForm.instagramUrl || ''}
                     onChange={(e) => setSettingsForm({ ...settingsForm, instagramUrl: e.target.value })}
