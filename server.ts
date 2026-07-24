@@ -3,10 +3,10 @@ import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { eq, desc } from 'drizzle-orm';
 import { db } from './src/db/index.ts';
-import { products, orders, siteSettings, users, pushTokens, adminNotifications, reviews } from './src/db/schema.ts';
+import { products, orders, siteSettings, users, pushTokens, adminNotifications, reviews, pageViews } from './src/db/schema.ts';
 import { INITIAL_PRODUCTS, INITIAL_SITE_SETTINGS } from './src/data/initialProducts.ts';
 import { createCourierConsignment, getLiveCourierStatus } from './server/couriers';
-import { triggerOrderNotification, registerSseClient, unregisterSseClient, sendPushNotification } from './server/notifications.ts';
+import { triggerOrderNotification, registerSseClient, unregisterSseClient, sendPushNotification, broadcastToClients } from './server/notifications.ts';
 
 
 async function startServer() {
@@ -44,6 +44,65 @@ async function startServer() {
   // Health check
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', database: 'cloudsql' });
+  });
+
+  // Track page view / visitor entry
+  app.post('/api/analytics/track', async (req, res) => {
+    try {
+      const { visitorId } = req.body;
+      if (!visitorId) {
+        return res.status(400).json({ error: 'visitorId is required' });
+      }
+
+      const now = new Date();
+      const dateStr = now.toISOString().split('T')[0]; // "YYYY-MM-DD"
+
+      await db.insert(pageViews).values({
+        visitorId,
+        createdAt: now,
+        dateStr,
+      });
+
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error('Failed to log visitor view:', error);
+      res.status(500).json({ error: 'Failed to log visitor view' });
+    }
+  });
+
+  // Get Visitor Analytics Stats for Admin Dashboard
+  app.get('/api/analytics/stats', async (req, res) => {
+    try {
+      const allViews = await db.select().from(pageViews);
+
+      const now = new Date();
+      const todayStr = now.toISOString().split('T')[0];
+
+      // Time thresholds
+      const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+      // Filter views
+      const todayViews = allViews.filter((v) => v.dateStr === todayStr);
+      const weekViews = allViews.filter((v) => new Date(v.createdAt) >= sevenDaysAgo);
+      const monthViews = allViews.filter((v) => new Date(v.createdAt) >= thirtyDaysAgo);
+
+      // Distinct Visitors
+      const todayUnique = new Set(todayViews.map((v) => v.visitorId)).size;
+      const weekUnique = new Set(weekViews.map((v) => v.visitorId)).size;
+      const monthUnique = new Set(monthViews.map((v) => v.visitorId)).size;
+      const totalUnique = new Set(allViews.map((v) => v.visitorId)).size;
+
+      res.json({
+        today: { unique: todayUnique, views: todayViews.length },
+        week: { unique: weekUnique, views: weekViews.length },
+        month: { unique: monthUnique, views: monthViews.length },
+        total: { unique: totalUnique, views: allViews.length },
+      });
+    } catch (error: any) {
+      console.error('Failed to calculate analytics stats:', error);
+      res.status(500).json({ error: 'Failed to calculate analytics stats' });
+    }
   });
 
   // Get all products
@@ -112,7 +171,9 @@ async function startServer() {
         })
         .returning();
 
-      res.json(result[0]);
+      const savedProduct = result[0];
+      broadcastToClients('product-updated', savedProduct);
+      res.json(savedProduct);
     } catch (error: any) {
       console.error('Failed to save product to Cloud SQL:', error);
       res.status(500).json({ error: 'Failed to save product' });
@@ -124,6 +185,7 @@ async function startServer() {
     try {
       const { id } = req.params;
       await db.delete(products).where(eq(products.id, id));
+      broadcastToClients('product-deleted', { id });
       res.json({ success: true, id });
     } catch (error: any) {
       console.error('Failed to delete product from Cloud SQL:', error);
@@ -273,7 +335,9 @@ async function startServer() {
         .where(eq(orders.id, id))
         .returning();
 
-      res.json(result[0]);
+      const updatedOrder = result[0];
+      broadcastToClients('order-updated', updatedOrder);
+      res.json(updatedOrder);
     } catch (error: any) {
       console.error('Failed to update order status in Cloud SQL:', error);
       res.status(500).json({ error: 'Failed to update order status' });
@@ -384,6 +448,7 @@ async function startServer() {
         .returning();
 
       const { id, ...cleanSettings } = result[0];
+      broadcastToClients('settings-updated', cleanSettings);
       res.json(cleanSettings);
     } catch (error: any) {
       console.error('Failed to update settings in Cloud SQL:', error);

@@ -3,7 +3,7 @@ import {
   Package, ShoppingCart, Settings, Plus, Edit, Trash2, CheckCircle2,
   XCircle, Clock, Truck, DollarSign, Search, ShieldCheck, RefreshCw,
   Eye, EyeOff, Lock, Key, Phone, MessageSquare, Mail, AlertTriangle, X, Upload, Image as ImageIcon,
-  Share2, Copy, Check, Bell, Volume2, VolumeX, ArrowRight, Printer, QrCode
+  Share2, Copy, Check, Bell, Volume2, VolumeX, ArrowRight, Printer, QrCode, Users, BarChart3, TrendingUp, Calendar, Globe
 } from 'lucide-react';
 import { Product, Order, OrderStatus, SiteSettings, Language, GenderCategory, SubCategory } from '../../types';
 import { translations } from '../../data/translations';
@@ -11,6 +11,7 @@ import { QRCodeModal } from '../QRCodeModal';
 import { saveProductApi, deleteProductApi, updateOrderStatusApi, saveSettingsApi, fetchOrdersApi } from '../../utils/api';
 import { formatWhatsappNumber, generateOrderReceiptText, getGmailComposeUrl } from '../../utils/formatters';
 import { playNotificationSound, requestAndRegisterNotificationPermission, onForegroundMessage } from '../../lib/firebaseNotifications';
+import { fetchAnalyticsStats, VisitorStats } from '../../utils/analytics';
 
 
 interface AdminDashboardProps {
@@ -49,6 +50,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [activeToast, setActiveToast] = useState<any | null>(null);
   const [vapidKeyInput, setVapidKeyInput] = useState('');
   const [testPushLoading, setTestPushLoading] = useState(false);
+
+  // --- VISITOR ANALYTICS STATE ---
+  const [visitorStats, setVisitorStats] = useState<VisitorStats | null>(null);
+  const [loadingVisitorStats, setLoadingVisitorStats] = useState(false);
+
+  const loadVisitorStats = async () => {
+    setLoadingVisitorStats(true);
+    const data = await fetchAnalyticsStats();
+    if (data) {
+      setVisitorStats(data);
+    }
+    setLoadingVisitorStats(false);
+  };
+
+  useEffect(() => {
+    loadVisitorStats();
+  }, []);
 
   // Fetch notification history on mount
   const fetchNotificationsHistory = async () => {
@@ -795,6 +813,145 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
             </div>
 
+            {/* WEBSITE VISITOR TRAFFIC REPORT */}
+            <div className="bg-stone-900 border border-stone-800 rounded-2xl p-6 space-y-5">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-800/80 pb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-xl flex items-center justify-center">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-serif text-lg font-bold text-stone-100 flex items-center gap-2">
+                      <span>ওয়েবসাইট ভিজিটর রিপোর্ট</span>
+                      <span className="text-xs font-normal text-stone-400 font-sans">(Website Visitor Analytics)</span>
+                    </h3>
+                    <p className="text-xs text-stone-400">
+                      প্রতিদিন, প্রতি সপ্তাহ, প্রতি মাস এবং ওয়েবসাইট তৈরির পর থেকে সর্বমোট ভিজিটর সংখ্যা
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={loadVisitorStats}
+                  disabled={loadingVisitorStats}
+                  className="px-3.5 py-1.5 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold border border-stone-700 transition-all flex items-center gap-1.5"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 text-amber-400 ${loadingVisitorStats ? 'animate-spin' : ''}`} />
+                  <span>{loadingVisitorStats ? 'রিফ্রেশ হচ্ছে...' : 'রিফ্রেশ করুণ'}</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Today */}
+                <div className="bg-stone-950/80 border border-amber-500/30 p-4.5 rounded-2xl space-y-2 relative overflow-hidden group hover:border-amber-500/50 transition-all">
+                  <div className="flex items-center justify-between text-xs text-stone-400">
+                    <span className="font-medium flex items-center gap-1.5 text-stone-300">
+                      <Calendar className="w-4 h-4 text-amber-400" />
+                      আজকের ভিজিটর (Today)
+                    </span>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">
+                      আজকে
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between pt-2">
+                    <div>
+                      <p className="font-serif text-3xl font-extrabold text-amber-400">
+                        {visitorStats?.today.unique ?? 0}
+                      </p>
+                      <p className="text-[11px] text-stone-400 font-medium">ইউনিক ভিজিটর</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-stone-300">
+                        {visitorStats?.today.views ?? 0}
+                      </p>
+                      <p className="text-[10px] text-stone-500">মোট পেজ ভিউ</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Week */}
+                <div className="bg-stone-950/80 border border-stone-800 p-4.5 rounded-2xl space-y-2 relative overflow-hidden group hover:border-stone-700 transition-all">
+                  <div className="flex items-center justify-between text-xs text-stone-400">
+                    <span className="font-medium flex items-center gap-1.5 text-stone-300">
+                      <TrendingUp className="w-4 h-4 text-blue-400" />
+                      এই সপ্তাহের (This Week)
+                    </span>
+                    <span className="text-[10px] bg-blue-500/20 text-blue-300 px-2 py-0.5 rounded-full font-bold">
+                      ৭ দিন
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between pt-2">
+                    <div>
+                      <p className="font-serif text-3xl font-extrabold text-stone-100">
+                        {visitorStats?.week.unique ?? 0}
+                      </p>
+                      <p className="text-[11px] text-stone-400 font-medium">ইউনিক ভিজিটর</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-stone-300">
+                        {visitorStats?.week.views ?? 0}
+                      </p>
+                      <p className="text-[10px] text-stone-500">মোট পেজ ভিউ</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Month */}
+                <div className="bg-stone-950/80 border border-stone-800 p-4.5 rounded-2xl space-y-2 relative overflow-hidden group hover:border-stone-700 transition-all">
+                  <div className="flex items-center justify-between text-xs text-stone-400">
+                    <span className="font-medium flex items-center gap-1.5 text-stone-300">
+                      <BarChart3 className="w-4 h-4 text-emerald-400" />
+                      এই মাসের (This Month)
+                    </span>
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full font-bold">
+                      ৩০ দিন
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between pt-2">
+                    <div>
+                      <p className="font-serif text-3xl font-extrabold text-stone-100">
+                        {visitorStats?.month.unique ?? 0}
+                      </p>
+                      <p className="text-[11px] text-stone-400 font-medium">ইউনিক ভিজিটর</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-stone-300">
+                        {visitorStats?.month.views ?? 0}
+                      </p>
+                      <p className="text-[10px] text-stone-500">মোট পেজ ভিউ</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Total All-Time */}
+                <div className="bg-stone-950/80 border border-amber-500/30 p-4.5 rounded-2xl space-y-2 relative overflow-hidden group hover:border-amber-500/50 transition-all">
+                  <div className="flex items-center justify-between text-xs text-stone-400">
+                    <span className="font-medium flex items-center gap-1.5 text-stone-300">
+                      <Globe className="w-4 h-4 text-amber-400" />
+                      সর্বমোট (Total All-Time)
+                    </span>
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full font-bold">
+                      সর্বমোট
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between pt-2">
+                    <div>
+                      <p className="font-serif text-3xl font-extrabold text-amber-400">
+                        {visitorStats?.total.unique ?? 0}
+                      </p>
+                      <p className="text-[11px] text-stone-400 font-medium">ইউনিক ভিজিটর</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-bold text-stone-300">
+                        {visitorStats?.total.views ?? 0}
+                      </p>
+                      <p className="text-[10px] text-stone-500">মোট পেজ ভিউ</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             {/* Quick Orders Overview Table */}
             <div className="bg-stone-900 border border-stone-800 rounded-2xl p-6 space-y-4">
               <h3 className="font-serif text-lg font-bold text-stone-100">
@@ -1174,7 +1331,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     ✓ Reflected across Contact Section, Footer, and Customer Service sections
                   </p>
                 </div>
-
                 <div>
                   <label className="block text-xs font-semibold text-stone-300 mb-1">
                     {t.facebookUrl} (Official Page):
@@ -1201,6 +1357,41 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     onChange={(e) => setSettingsForm({ ...settingsForm, instagramUrl: e.target.value })}
                     className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
                   />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <h3 className="font-serif text-sm font-bold text-amber-400 border-b border-stone-800 pb-2 mb-4 mt-4 flex items-center gap-2">
+                    <ImageIcon className="w-4 h-4" />
+                    Home Page Featured Image / Video
+                  </h3>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-xs font-semibold text-stone-300 mb-1">
+                    Featured Media URL:
+                  </label>
+                  <input
+                    type="url"
+                    required
+                    placeholder="https://..."
+                    value={settingsForm.heroMediaUrl || ''}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, heroMediaUrl: e.target.value })}
+                    className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-stone-300 mb-1">
+                    Media Type:
+                  </label>
+                  <select
+                    value={settingsForm.heroMediaType || 'image'}
+                    onChange={(e) => setSettingsForm({ ...settingsForm, heroMediaType: e.target.value as 'image' | 'video' })}
+                    className="w-full bg-stone-950 border border-stone-800 rounded-lg px-3 py-2 text-xs text-stone-100 focus:border-amber-400 focus:outline-none cursor-pointer"
+                  >
+                    <option value="image">Image (PNG/JPG/GIF)</option>
+                    <option value="video">Video (MP4)</option>
+                  </select>
                 </div>
 
                 {/* Admin Password Security Section */}
@@ -1618,6 +1809,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     <option value="Shirt">{t.shirt}</option>
                     <option value="Polo">{t.polo}</option>
                     <option value="Pants">{t.pants}</option>
+                    <option value="Baggy">{t.baggy}</option>
+                    <option value="Bootcut">{t.bootcut}</option>
+                    <option value="Jeans">{t.jeans}</option>
                     <option value="Hoodie">{t.hoodie}</option>
                     <option value="Dress">{t.dress}</option>
                     <option value="Traditional">{t.traditional}</option>

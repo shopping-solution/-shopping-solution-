@@ -1,14 +1,15 @@
 import React from 'react';
 import { ArrowRight, ShieldCheck, Truck, Sparkles, RefreshCw } from 'lucide-react';
-import { Language } from '../types';
+import { Language, SiteSettings } from '../types';
 import { translations } from '../data/translations';
 
 interface HeroBannerProps {
   language: Language;
   onNavigate: (view: 'men' | 'women' | 'home') => void;
+  siteSettings: SiteSettings;
 }
 
-export const HeroBanner: React.FC<HeroBannerProps> = ({ language, onNavigate }) => {
+export const HeroBanner: React.FC<HeroBannerProps> = ({ language, onNavigate, siteSettings }) => {
   const t = translations[language];
 
   return (
@@ -89,12 +90,23 @@ export const HeroBanner: React.FC<HeroBannerProps> = ({ language, onNavigate }) 
               {/* Outer Decorative Frame */}
               <div className="absolute -inset-1 rounded-2xl bg-gradient-to-r from-amber-500 to-stone-700 opacity-40 blur-lg"></div>
 
-              <div className="relative rounded-2xl overflow-hidden border border-amber-500/30 bg-stone-900 shadow-2xl">
-                <img
-                  src="https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80&w=1000"
-                  alt="ZORUQ Fashion Collection"
-                  className="w-full h-[420px] object-cover hover:scale-105 transition-transform duration-700"
-                />
+              <div className="relative rounded-2xl overflow-hidden border border-amber-500/30 bg-stone-900 shadow-2xl h-[420px]">
+                {siteSettings.heroMediaType === 'video' ? (
+                  <video
+                    src={siteSettings.heroMediaUrl || 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80&w=1000'}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
+                  />
+                ) : (
+                  <img
+                    src={siteSettings.heroMediaUrl || 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80&w=1000'}
+                    alt="ZORUQ Fashion Collection"
+                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-700"
+                  />
+                )}
 
                 {/* Floating Overlay Badge */}
                 <div className="absolute bottom-4 left-4 right-4 bg-stone-950/80 backdrop-blur-md p-4 rounded-xl border border-amber-500/30 flex items-center justify-between">

@@ -1,15 +1,5 @@
-            {/* Instagram Option */}
-            <button
-              onClick={() => handleSocialChatClick('instagram')}
-              className="flex items-center gap-2.5 group cursor-pointer border-none bg-transparent outline-none"
-              title="Message on Instagram"
-            >
-              <span className="bg-stone-900 border border-stone-800 text-stone-200 text-xs font-bold px-3 py-1.5 rounded-lg shadow-md opacity-0 group-hover:opacity-100 transition-opacity duration-150">
-                Instagram
-              </span>
-              <img 
-                src="https://upload.wikimedia.org/wikipedia/commons/9/95/Instagram_logo_2022.svg" 
-                alt="Instagram" 
-                className="w-12 h-12 shadow-lg hover:scale-110 transition-all rounded-xl"
-              />
-            </button>
+  deliveryFeeOutsideDhaka: integer('delivery_fee_outside_dhaka').notNull(),
+  defaultCourier: text('default_courier'),
+  heroMediaUrl: text('hero_media_url'),
+  heroMediaType: text('hero_media_type'),
+});

@@ -19,6 +19,7 @@ import {
   createOrderApi, seedDefaultsApi, saveProductApi
 } from './utils/api';
 import { formatWhatsappNumber } from './utils/formatters';
+import { trackVisitor } from './utils/analytics';
 
 import { Navbar } from './components/Navbar';
 import { HeroBanner } from './components/HeroBanner';
@@ -178,6 +179,9 @@ Assalamu Alaikum, I want to know about a product.`;
 
   // Fetch initial state from Cloud SQL API
   useEffect(() => {
+    // Track visitor hit
+    trackVisitor();
+
     async function loadCloudSqlData() {
       const [apiProds, apiOrders, apiSettings] = await Promise.all([
         fetchProductsApi(),
@@ -195,6 +199,74 @@ Assalamu Alaikum, I want to know about a product.`;
       }
     }
     loadCloudSqlData();
+  }, []);
+
+  // Live SSE listener for instant real-time synchronization of products, settings, and orders across all clients
+  useEffect(() => {
+    let eventSource: EventSource | null = null;
+    try {
+      eventSource = new EventSource('/api/notifications/stream');
+
+      eventSource.addEventListener('product-updated', (event: MessageEvent) => {
+        try {
+          const updatedProd = JSON.parse(event.data);
+          setProducts((prev) => {
+            const index = prev.findIndex((p) => p.id === updatedProd.id);
+            if (index !== -1) {
+              const next = [...prev];
+              next[index] = updatedProd;
+              return next;
+            }
+            return [updatedProd, ...prev];
+          });
+        } catch (err) {
+          console.error('[SSE Client] Failed to parse product-updated event:', err);
+        }
+      });
+
+      eventSource.addEventListener('product-deleted', (event: MessageEvent) => {
+        try {
+          const { id } = JSON.parse(event.data);
+          setProducts((prev) => prev.filter((p) => p.id !== id));
+        } catch (err) {
+          console.error('[SSE Client] Failed to parse product-deleted event:', err);
+        }
+      });
+
+      eventSource.addEventListener('settings-updated', (event: MessageEvent) => {
+        try {
+          const updatedSettings = JSON.parse(event.data);
+          setSiteSettings(updatedSettings);
+        } catch (err) {
+          console.error('[SSE Client] Failed to parse settings-updated event:', err);
+        }
+      });
+
+      eventSource.addEventListener('order-updated', (event: MessageEvent) => {
+        try {
+          const updatedOrder = JSON.parse(event.data);
+          setOrders((prev) => {
+            const index = prev.findIndex((o) => o.id === updatedOrder.id);
+            if (index !== -1) {
+              const next = [...prev];
+              next[index] = updatedOrder;
+              return next;
+            }
+            return [updatedOrder, ...prev];
+          });
+        } catch (err) {
+          console.error('[SSE Client] Failed to parse order-updated event:', err);
+        }
+      });
+    } catch (err) {
+      console.error('[SSE Client] EventSource connection error:', err);
+    }
+
+    return () => {
+      if (eventSource) {
+        eventSource.close();
+      }
+    };
   }, []);
 
   // Check URL query parameter (?product=prodId) for product share link
@@ -269,6 +341,9 @@ Assalamu Alaikum, I want to know about a product.`;
     if (key === 'shirt') return t.shirt;
     if (key === 'polo') return t.polo;
     if (key === 'pants') return t.pants;
+    if (key === 'baggy') return t.baggy;
+    if (key === 'bootcut') return t.bootcut;
+    if (key === 'jeans') return t.jeans;
     if (key === 'hoodie') return t.hoodie;
     if (key === 'dress') return t.dress;
     if (key === 'traditional') return t.traditional;
@@ -295,8 +370,27 @@ Assalamu Alaikum, I want to know about a product.`;
       }
 
       // Subcategory Filter
-      if (selectedSubCategory !== 'All' && p.category !== selectedSubCategory) {
-        return false;
+      if (selectedSubCategory !== 'All') {
+        if (selectedSubCategory === 'Pants') {
+          if (!['Pants', 'Baggy', 'Bootcut', 'Jeans'].includes(p.category)) return false;
+        } else if (selectedSubCategory === 'Baggy') {
+          const matchesCategory = p.category === 'Baggy';
+          const matchesNameOrDesc = (p.category === 'Pants' || p.category === 'Baggy') && 
+            (p.name.toLowerCase().includes('baggy') || (p.description && p.description.toLowerCase().includes('baggy')));
+          if (!matchesCategory && !matchesNameOrDesc) return false;
+        } else if (selectedSubCategory === 'Bootcut') {
+          const matchesCategory = p.category === 'Bootcut';
+          const matchesNameOrDesc = (p.category === 'Pants' || p.category === 'Bootcut') && 
+            (p.name.toLowerCase().includes('bootcut') || (p.description && p.description.toLowerCase().includes('bootcut')));
+          if (!matchesCategory && !matchesNameOrDesc) return false;
+        } else if (selectedSubCategory === 'Jeans') {
+          const matchesCategory = p.category === 'Jeans';
+          const matchesNameOrDesc = (p.category === 'Pants' || p.category === 'Jeans') && 
+            (p.name.toLowerCase().includes('jeans') || p.name.toLowerCase().includes('denim') || (p.description && p.description.toLowerCase().includes('jeans')));
+          if (!matchesCategory && !matchesNameOrDesc) return false;
+        } else if (p.category !== selectedSubCategory) {
+          return false;
+        }
       }
 
       // Size Filter
@@ -461,6 +555,7 @@ Assalamu Alaikum, I want to know about a product.`;
               <HeroBanner
                 language={language}
                 onNavigate={(view) => setCurrentView(view)}
+                siteSettings={siteSettings}
               />
             )}
 
@@ -478,40 +573,102 @@ Assalamu Alaikum, I want to know about a product.`;
                 </div>
               )}
 
-              {/* Subcategories Filter Bar for Men or Women */}
+              {/* Subcategories Filter Bar for Men */}
               {currentView === 'men' && (
-                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                  {['All', 'T-Shirt', 'Shirt', 'Polo', 'Pants', 'Hoodie', 'Watch'].map((sub) => (
-                    <button
-                      key={sub}
-                      onClick={() => setSelectedSubCategory(sub)}
-                      className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
-                        selectedSubCategory === sub
-                          ? 'bg-amber-500 text-stone-950 shadow-md'
-                          : 'bg-stone-900 text-stone-300 border border-stone-800 hover:border-amber-500/40'
-                      }`}
-                    >
-                      {getSubCategoryLabel(sub)}
-                    </button>
-                  ))}
+                <div className="space-y-3 pt-2">
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {['All', 'T-Shirt', 'Shirt', 'Polo', 'Pants', 'Hoodie', 'Watch'].map((sub) => (
+                      <button
+                        key={sub}
+                        onClick={() => setSelectedSubCategory(sub)}
+                        className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
+                          selectedSubCategory === sub || (sub === 'Pants' && ['Pants', 'Baggy', 'Bootcut', 'Jeans'].includes(selectedSubCategory))
+                            ? 'bg-amber-500 text-stone-950 shadow-md font-extrabold'
+                            : 'bg-stone-900 text-stone-300 border border-stone-800 hover:border-amber-500/40'
+                        }`}
+                      >
+                        {getSubCategoryLabel(sub)}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Special Pants Sub-sections Bar - ONLY rendered when Pants is clicked */}
+                  {['Pants', 'Baggy', 'Bootcut', 'Jeans'].includes(selectedSubCategory) && (
+                    <div className="bg-stone-900/90 border border-amber-500/30 rounded-2xl p-3 max-w-2xl mx-auto text-center space-y-2 shadow-inner transition-all animate-fadeIn">
+                      <div className="flex items-center justify-center gap-2 text-xs text-amber-400 font-bold">
+                        <span>👖 {language === 'bn' ? 'প্যান্টের ধরণ (Pants Types)' : 'Pants Sub-Sections'}:</span>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        {[
+                          { id: 'Pants', labelBn: 'সকল প্যান্ট (All Pants)', labelEn: 'All Pants' },
+                          { id: 'Baggy', labelBn: 'ব্যাগী (Baggy)', labelEn: 'Baggy' },
+                          { id: 'Bootcut', labelBn: 'বুটকাট (Bootcut)', labelEn: 'Bootcut' },
+                          { id: 'Jeans', labelBn: 'জিন্স (Jeans)', labelEn: 'Jeans' },
+                        ].map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => setSelectedSubCategory(item.id)}
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                              selectedSubCategory === item.id
+                                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-stone-950 shadow-md font-extrabold ring-2 ring-amber-400/50'
+                                : 'bg-stone-950 text-stone-300 border border-stone-800 hover:border-amber-500/50 hover:text-amber-300'
+                            }`}
+                          >
+                            {language === 'bn' ? item.labelBn : item.labelEn}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 
               {currentView === 'women' && (
-                <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
-                  {['All', 'Traditional', 'Dress', 'Shirt', 'Pants', 'Hoodie', 'Watch'].map((sub) => (
-                    <button
-                      key={sub}
-                      onClick={() => setSelectedSubCategory(sub)}
-                      className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
-                        selectedSubCategory === sub
-                          ? 'bg-amber-500 text-stone-950 shadow-md'
-                          : 'bg-stone-900 text-stone-300 border border-stone-800 hover:border-amber-500/40'
-                      }`}
-                    >
-                      {getSubCategoryLabel(sub)}
-                    </button>
-                  ))}
+                <div className="space-y-3 pt-2">
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    {['All', 'Traditional', 'Dress', 'Shirt', 'Pants', 'Hoodie', 'Watch'].map((sub) => (
+                      <button
+                        key={sub}
+                        onClick={() => setSelectedSubCategory(sub)}
+                        className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
+                          selectedSubCategory === sub || (sub === 'Pants' && ['Pants', 'Baggy', 'Bootcut', 'Jeans'].includes(selectedSubCategory))
+                            ? 'bg-amber-500 text-stone-950 shadow-md font-extrabold'
+                            : 'bg-stone-900 text-stone-300 border border-stone-800 hover:border-amber-500/40'
+                        }`}
+                      >
+                        {getSubCategoryLabel(sub)}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Special Pants Sub-sections Bar for Women as well */}
+                  {['Pants', 'Baggy', 'Bootcut', 'Jeans'].includes(selectedSubCategory) && (
+                    <div className="bg-stone-900/90 border border-amber-500/30 rounded-2xl p-3 max-w-2xl mx-auto text-center space-y-2 shadow-inner transition-all animate-fadeIn">
+                      <div className="flex items-center justify-center gap-2 text-xs text-amber-400 font-bold">
+                        <span>👖 {language === 'bn' ? 'প্যান্টের ধরণ (Pants Types)' : 'Pants Sub-Sections'}:</span>
+                      </div>
+                      <div className="flex flex-wrap items-center justify-center gap-2">
+                        {[
+                          { id: 'Pants', labelBn: 'সকল প্যান্ট (All Pants)', labelEn: 'All Pants' },
+                          { id: 'Baggy', labelBn: 'ব্যাগী (Baggy)', labelEn: 'Baggy' },
+                          { id: 'Bootcut', labelBn: 'বুটকাট (Bootcut)', labelEn: 'Bootcut' },
+                          { id: 'Jeans', labelBn: 'জিন্স (Jeans)', labelEn: 'Jeans' },
+                        ].map((item) => (
+                          <button
+                            key={item.id}
+                            onClick={() => setSelectedSubCategory(item.id)}
+                            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                              selectedSubCategory === item.id
+                                ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-stone-950 shadow-md font-extrabold ring-2 ring-amber-400/50'
+                                : 'bg-stone-950 text-stone-300 border border-stone-800 hover:border-amber-500/50 hover:text-amber-300'
+                            }`}
+                          >
+                            {language === 'bn' ? item.labelBn : item.labelEn}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

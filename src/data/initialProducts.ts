@@ -12,6 +12,8 @@ export const INITIAL_SITE_SETTINGS: SiteSettings = {
   nagadNumber: '01812345678',
   deliveryFeeInsideDhaka: 70,
   deliveryFeeOutsideDhaka: 130,
+  heroMediaUrl: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?auto=format&fit=crop&q=80&w=1000',
+  heroMediaType: 'image',
 };
 
 export const INITIAL_PRODUCTS: Product[] = [
@@ -112,6 +114,78 @@ export const INITIAL_PRODUCTS: Product[] = [
     isBestSelling: false,
     isNewAdded: true,
     createdAt: new Date(Date.now() - 259200000).toISOString()
+  },
+  {
+    id: 'prod-m-baggy',
+    name: 'ZORUQ Streetwear Baggy Fit Cargo Pants',
+    nameBn: 'জোরুক স্ট্রিটওয়্যার ব্যাগী কার্গো প্যান্ট',
+    gender: 'men',
+    category: 'Baggy',
+    price: 2450,
+    oldPrice: 2990,
+    discountPercent: 18,
+    description: 'Relaxed Barry baggy silhouette featuring heavy-duty 100% twill cotton, deep tactical side pockets, and adjustable ankle cuffs for maximum comfort and urban trend.',
+    descriptionBn: 'ট্রেন্ডি ব্যারি ব্যাগী কাটের প্রিমিয়াম টেক্সচার্ড কটন প্যান্ট। গভীর পকেট ও আরবান স্ট্রিটওয়্যার স্টাইল।',
+    images: [
+      'https://images.unsplash.com/photo-1517445312882-bc9910d016b7?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1624378439575-d8705ad7ae80?auto=format&fit=crop&q=80&w=800'
+    ],
+    colors: ['Black', 'Olive', 'Charcoal'],
+    sizes: ['28', '30', '32', '34', '36'],
+    stock: 25,
+    inStock: true,
+    isTrending: true,
+    isBestSelling: true,
+    isNewAdded: true,
+    createdAt: new Date(Date.now() - 50000000).toISOString()
+  },
+  {
+    id: 'prod-m-bootcut',
+    name: 'ZORUQ Vintage Wash Flare Bootcut Pants',
+    nameBn: 'জোরুক ভিন্টেজ ওয়াশ ফ্লেয়ার বুটকাট প্যান্ট',
+    gender: 'men',
+    category: 'Bootcut',
+    price: 2650,
+    oldPrice: 3200,
+    discountPercent: 17,
+    description: 'Classic retro flare bootcut cut crafted from 13.5oz ring-spun stretch denim with subtle whisker washing and reinforced brass rivets.',
+    descriptionBn: 'স্টাইলিশ ভিন্টেজ বুটকাট শেপড প্রিমিয়াম ডেনিম প্যান্ট। আরামদায়ক ফিটিং এবং ক্লাসিক উইস্কার ওয়াশ লুক।',
+    images: [
+      'https://images.unsplash.com/photo-1541099649105-f69ad21f3246?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1473966968600-fa801b869a1a?auto=format&fit=crop&q=80&w=800'
+    ],
+    colors: ['Blue Indigo', 'Washed Black', 'Light Blue'],
+    sizes: ['30', '32', '34', '36'],
+    stock: 18,
+    inStock: true,
+    isTrending: true,
+    isBestSelling: false,
+    isNewAdded: true,
+    createdAt: new Date(Date.now() - 40000000).toISOString()
+  },
+  {
+    id: 'prod-m-jeans',
+    name: 'ZORUQ Dark Indigo Raw Stretch Jeans Pants',
+    nameBn: 'জোরুক ডার্ক ইন্ডিগো ওয়াশড প্রিমিয়াম জিন্স প্যান্ট',
+    gender: 'men',
+    category: 'Jeans',
+    price: 2350,
+    oldPrice: 2800,
+    discountPercent: 16,
+    description: 'Premium indigo selvedge style stretch jeans with 5-pocket construction, copper button fly, and tailored slim-tapered fit.',
+    descriptionBn: 'উচ্চমানের ইন্ডিগো শেড ৫-পকেট প্রিমিয়াম স্ট্রেচ জিন্স প্যান্ট। টেকসই বুনন ও দীর্ঘস্থায়ী রঙ।',
+    images: [
+      'https://images.unsplash.com/photo-1542272604-780c36856842?auto=format&fit=crop&q=80&w=800',
+      'https://images.unsplash.com/photo-1604176354204-9268737828e4?auto=format&fit=crop&q=80&w=800'
+    ],
+    colors: ['Dark Indigo', 'Black', 'Vintage Blue'],
+    sizes: ['28', '30', '32', '34', '36', '38'],
+    stock: 30,
+    inStock: true,
+    isTrending: true,
+    isBestSelling: true,
+    isNewAdded: true,
+    createdAt: new Date(Date.now() - 30000000).toISOString()
   },
   {
     id: 'prod-m5',

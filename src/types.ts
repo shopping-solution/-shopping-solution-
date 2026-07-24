@@ -2,8 +2,8 @@ export type Language = 'en' | 'bn';
 
 export type GenderCategory = 'men' | 'women' | 'unisex';
 
-export type MenSubCategory = 'T-Shirt' | 'Shirt' | 'Polo' | 'Pants' | 'Hoodie' | 'Watch';
-export type WomenSubCategory = 'T-Shirt' | 'Shirt' | 'Dress' | 'Pants' | 'Hoodie' | 'Traditional' | 'Watch';
+export type MenSubCategory = 'T-Shirt' | 'Shirt' | 'Polo' | 'Pants' | 'Baggy' | 'Bootcut' | 'Jeans' | 'Hoodie' | 'Watch';
+export type WomenSubCategory = 'T-Shirt' | 'Shirt' | 'Dress' | 'Pants' | 'Baggy' | 'Bootcut' | 'Jeans' | 'Hoodie' | 'Traditional' | 'Watch';
 
 export type SubCategory = MenSubCategory | WomenSubCategory;
 
@@ -80,6 +80,8 @@ export interface SiteSettings {
   deliveryFeeInsideDhaka: number;
   deliveryFeeOutsideDhaka: number;
   defaultCourier?: string;
+  heroMediaUrl?: string;
+  heroMediaType?: 'image' | 'video';
 }
 
 export interface Review {

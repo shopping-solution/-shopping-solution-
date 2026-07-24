@@ -32,6 +32,8 @@ export function broadcastToAdmins(event: string, data: any) {
   });
 }
 
+export const broadcastToClients = broadcastToAdmins;
+
 let firebaseAdminApp: any = null;
 let fcmAttempted = false;
 

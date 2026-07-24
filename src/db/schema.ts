@@ -59,6 +59,8 @@ export const siteSettings = pgTable('site_settings', {
   deliveryFeeInsideDhaka: integer('delivery_fee_inside_dhaka').notNull(),
   deliveryFeeOutsideDhaka: integer('delivery_fee_outside_dhaka').notNull(),
   defaultCourier: text('default_courier'),
+  heroMediaUrl: text('hero_media_url'),
+  heroMediaType: text('hero_media_type'),
 });
 
 export const pushTokens = pgTable('push_tokens', {
@@ -85,5 +87,12 @@ export const reviews = pgTable('reviews', {
   reviewerRating: integer('reviewer_rating').notNull().default(5),
   reviewerImage: text('reviewer_image'),
   createdAt: text('created_at').notNull(),
+});
+
+export const pageViews = pgTable('page_views', {
+  id: serial('id').primaryKey(),
+  visitorId: text('visitor_id').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  dateStr: text('date_str').notNull(),
 });
 
